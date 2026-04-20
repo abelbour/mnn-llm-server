@@ -165,7 +165,7 @@ jobs:
             gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
             cmake ninja-build python3
 
-      - name: Build MNN (CPU only for arm)
+      - name: Build MNN (unified for arm)
         run: |
           cd MNN
           mkdir -p build
@@ -176,9 +176,14 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=arm \
             -DMNN_BUILD_LLM=ON \
+            -DMNN_OPENCL=ON \
+            -DMNN_VULKAN=ON \
+            -DMNN_OPENGL=ON \
+            -DMNN_QNN=ON \
             -DMNN_LOW_MEMORY=ON \
             -DMNN_SUPPORT_FP16_ARMV7=OFF \
             -DMNN_OPENMP=ON \
+            -DMNN_SUPPORT_BF16=ON \
             -GNinja
           ninja -j$(nproc)
 
