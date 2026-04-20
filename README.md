@@ -8,7 +8,7 @@ A high-performance, self-hosted LLM inference server built with Alibaba's MNN fr
 - **OpenAI-Compatible API**: Works with any OpenAI-compatible client
 - **Real-time Streaming**: Token-by-token streaming via Server-Sent Events (SSE)
 - **Web UI**: Built-in chat interface with markdown rendering
-- **Multiple GPU Backends**: Auto-detection (OpenCL → Vulkan → OpenGL → CPU)
+- **Multiple GPU Backends**: Auto-detection (OpenCL → Vulkan → CPU)
 - **Interactive CLI**: Menu-driven or direct CLI commands
 - **Dynamic Model Detection**: Automatically detects models in the models folder
 

@@ -46,7 +46,7 @@ jobs:
             -DMNN_BUILD_LLM=ON \
             -DMNN_OPENCL=ON \
             -DMNN_VULKAN=ON \
-            -DMNN_OPENGL=ON \
+            -DMNN_OPENGL=OFF \
             -DMNN_QNN=OFF \
             -DMNN_LOW_MEMORY=ON \
             -DMNN_ARM82=ON \
@@ -91,14 +91,12 @@ jobs:
           cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
           cat > debian/DEBIAN/postinst << 'EOF'
           #!/bin/bash
-          # Auto-detect backend: OpenCL → Vulkan → OpenGL → CPU
+          # Auto-detect backend: OpenCL → Vulkan → CPU
           if [ -z "$MNN_BACKEND" ]; then
             if /usr/bin/mnn-server --test opencl 2>/dev/null; then
               export MNN_BACKEND=opencl
             elif /usr/bin/mnn-server --test vulkan 2>/dev/null; then
               export MNN_BACKEND=vulkan
-            elif /usr/bin/mnn-server --test opengl 2>/dev/null; then
-              export MNN_BACKEND=opengl
             else
               export MNN_BACKEND=cpu
             fi
@@ -176,7 +174,7 @@ jobs:
             -DMNN_BUILD_LLM=ON \
             -DMNN_OPENCL=ON \
             -DMNN_VULKAN=ON \
-            -DMNN_OPENGL=ON \
+            -DMNN_OPENGL=OFF \
             -DMNN_QNN=OFF \
             -DMNN_LOW_MEMORY=ON \
             -DMNN_SUPPORT_FP16_ARMV7=OFF \
