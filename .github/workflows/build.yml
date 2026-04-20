@@ -119,31 +119,20 @@ jobs:
           Architecture: aarch64
           Maintainer: ${{ github.repository_owner }}
           Description: MNN LLM Server with all GPU backends
-           Supports OpenCL, Vulkan, QNN, OpenGL, and CPU
+           Supports OpenCL, Vulkan, CPU
           EOF
           dpkg-deb --build debian ../mnn-llm-server-aarch64.deb
 
-      - name: Upload Linux .zip
-        uses: actions/upload-release-asset@v1
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mnn-llm-server-aarch64.zip
+            mnn-llm-server-aarch64.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: mnn-llm-server-aarch64.zip
-          asset_name: mnn-llm-server-aarch64.zip
-          asset_content_type: application/zip
 
-      - name: Upload Termux .deb
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: mnn-llm-server-aarch64.deb
-          asset_name: mnn-llm-server-aarch64.deb
-          asset_content_type: application/x-deb
-
-  # Build for arm (32-bit, CPU only due to GPU limitations)
+  # Build for arm (32-bit, CPU only)
   build-arm:
     runs-on: ubuntu-latest
     steps:
@@ -246,22 +235,11 @@ jobs:
           EOF
           dpkg-deb --build debian ../mnn-llm-server-arm.deb
 
-      - name: Upload Linux .zip
-        uses: actions/upload-release-asset@v1
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mnn-llm-server-arm.zip
+            mnn-llm-server-arm.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: mnn-llm-server-arm.zip
-          asset_name: mnn-llm-server-arm.zip
-          asset_content_type: application/zip
-
-      - name: Upload Termux .deb
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: mnn-llm-server-arm.deb
-          asset_name: mnn-llm-server-arm.deb
-          asset_content_type: application/x-deb
