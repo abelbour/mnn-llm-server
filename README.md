@@ -8,31 +8,110 @@ A high-performance, self-hosted LLM inference server built with Alibaba's MNN fr
 - **OpenAI-Compatible API**: Works with any OpenAI-compatible client
 - **Real-time Streaming**: Token-by-token streaming via Server-Sent Events (SSE)
 - **Web UI**: Built-in chat interface with markdown rendering
-- **Multiple Model Support**: Switch between models easily
+- **Multiple GPU Backends**: Auto-detection (OpenCL → Vulkan → CPU)
 - **Interactive CLI**: Menu-driven or direct CLI commands
 - **Dynamic Model Detection**: Automatically detects models in the models folder
 
 ## Quick Start
 
+### Termux (Android)
+
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/mnn-llm-server.git
-cd mnn-llm-server
+# Download the default package (includes all backends)
+wget https://github.com/abelbour/mnn-llm-server/releases/latest/download/mnn-llm-server-cpu_all.deb
 
-# Install dependencies (optional, for first-time setup)
-./scripts/install-deps.sh
+# Install
+dpkg -i mnn-llm-server-cpu_all.deb
+apt install -f  # Install dependencies
 
-# Build the server
-./scripts/start.sh --build
+# Download a model
+mnn-download-model Llama-3.2-1B-Instruct-MNN
 
-# Download models to ./models/ folder
-# (see Models section below)
-
-# Start the server
-./scripts/start.sh --start
+# Start server
+mnn-server
 ```
 
 Then open http://localhost:8000 in your browser.
+
+### Linux (ARM)
+
+```bash
+# Download desired variant
+wget https://github.com/abelbour/mnn-llm-server/releases/latest/download/mnn-llm-server-vulkan-aarch64.zip
+
+# Extract
+unzip mnn-llm-server-vulkan-aarch64.zip
+cd mnn-llm-server-vulkan-aarch64
+
+# Download a model
+./scripts/download-model.sh Llama-3.2-1B-Instruct-MNN
+
+# Start server
+./mnn-server
+```
+
+## Installation
+
+### Termux Packages
+
+| Package | Backends | Description |
+|---------|----------|--------------|
+| `mnn-llm-server-cpu_all.deb` | OpenCL + Vulkan + CPU | Default, auto-detects best backend |
+| `mnn-llm-server-opencl_aarch64.deb` | OpenCL | OpenCL only |
+| `mnn-llm-server-vulkan_aarch64.deb` | Vulkan | Vulkan only |
+
+**Install:**
+```bash
+dpkg -i <package>.deb
+apt install -f
+```
+
+### Linux Zip Packages
+
+| Package | Backends | Architecture |
+|---------|----------|--------------|
+| `mnn-llm-server-opencl-aarch64.zip` | OpenCL | 64-bit ARM |
+| `mnn-llm-server-vulkan-aarch64.zip` | Vulkan | 64-bit ARM |
+| `mnn-llm-server-cpu-aarch64.zip` | CPU | 64-bit ARM |
+| `mnn-llm-server-cpu-arm.zip` | CPU | 32-bit ARM |
+
+**Extract:**
+```bash
+unzip <package>.zip
+cd <package>
+./mnn-server
+```
+
+## GPU Backend Selection
+
+### Auto-Detection (Default)
+
+The server automatically detects the best available backend in this order:
+```
+OpenCL → Vulkan → CPU
+```
+
+### Manual Selection
+
+**Termux:**
+```bash
+# Set environment variable before running
+MNN_BACKEND=opencl mnn-server
+MNN_BACKEND=vulkan mnn-server
+MNN_BACKEND=cpu mnn-server
+```
+
+**Linux:**
+```bash
+MNN_BACKEND=vulkan ./mnn-server
+```
+
+### Check Available Backend
+
+```bash
+# Run with specific backend to test
+mnn-server-cpu --help  # or --test flag
+```
 
 ## CLI Usage
 
@@ -40,90 +119,23 @@ Then open http://localhost:8000 in your browser.
 
 ```bash
 # Build
-./scripts/start.sh --build              # Build server
-./scripts/start.sh --build --all        # Build everything
+./scripts/start.sh --build
 
 # Start
-./scripts/start.sh --start              # Start with default model
-./scripts/start.sh -s                  # Short form
-./scripts/start.sh -s -m "model-name"  # Specific model
+./scripts/start.sh --start
+./scripts/start.sh -s -m "model-name"
 
 # Stop
-./scripts/start.sh --stop             # Stop server
-./scripts/start.sh -x                 # Short form
+./scripts/start.sh --stop
 
 # Status
-./scripts/start.sh --status           # Check if server is running
+./scripts/start.sh --status
 
 # Logs
-./scripts/start.sh --logs              # View last 50 lines
-./scripts/start.sh --logs 100         # View last 100 lines
+./scripts/start.sh --logs
 
 # Interactive menu
-./scripts/start.sh                   # Show interactive menu
-./scripts/start.sh -M                 # Same as above
-```
-
-### Interactive Menu
-
-```
-$ ./scripts/start.sh
-
-==========================================
-   MNN LLM Server - Interactive Menu
-==========================================
-
-1. Build          - Compile server & MNN
-2. MNN Options   - MNN library submenu
-3. Models        - Manage/download models
-4. Start Server - Run the server
-5. Server Options - Configure server
-6. Stop Server  - Kill running server
-7. View Logs    - Show server logs
-8. Check Status - Server health
-9. Exit
-```
-
-### MNN Options Submenu (Option 2)
-
-```
-==========================================
-   MNN Options
-==========================================
-
-1. Build MNN Libraries   - Compile libMNN.so & libllm.so
-2. Download Pre-built   - Download pre-built binaries
-3. Back to Main Menu
-```
-
-### Server Options Submenu (Option 5)
-
-```
-==========================================
-   Server Options
-==========================================
-
-1. Select Model     - Choose default model
-2. Set Port        - Configure port
-3. Back to Main Menu
-```
-
-## Configuration
-
-### URL Parameters (Web UI)
-
-The web UI supports URL parameters to pre-configure settings:
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `apiUrl` | API endpoint | `http://localhost:8000/v1` |
-| `model` | Model name | Auto-detected from folder |
-| `apiKey` | API key | `dummy` |
-
-Examples:
-```
-http://localhost:8000/                      # Default (first model found)
-http://192.168.1.100:8000/?model=phi-2       # Using phi-2 model
+./scripts/start.sh
 ```
 
 ## API Endpoints
@@ -158,148 +170,103 @@ curl -N -X POST http://localhost:8000/v1/chat/completions \
 
 ## Models
 
-### Adding Models
-
-1. Create a folder in `./models/`:
-   ```
-   ./models/Llama-3.2-1B-Instruct-MNN/
-   ```
-
-2. Add model files:
-   - `config.json`
-   - `llm.mnn`
-   - `tokenizer.txt`
-
 ### Download Models
 
-Place MNN models in the `./models/` folder. Models can be downloaded from:
+**Termux:**
+```bash
+mnn-download-model Llama-3.2-1B-Instruct-MNN
+mnn-download-model Qwen2.5-Coder-1.5B-Instruct-MNN
+```
 
-- [Hugging Face](https://huggingface.co/models?search=mnn) - Search for "MNN" models
-- [MNN Model Zoo](https://github.com/alibaba/MNN/blob/master/benchmark/DOWNLOAD.md)
+**Linux:**
+```bash
+./scripts/download-model.sh Llama-3.2-1B-Instruct-MNN
+```
+
+**Manual:**
+1. Download MNN model from HuggingFace
+2. Extract to `models/` folder
 
 ### Available Models
 
-The server automatically detects models in the `./models/` folder. Simply add a model folder and restart.
+| Model | Size | Notes |
+|-------|------|-------|
+| Llama-3.2-1B-Instruct-MNN | ~1.2GB | Recommended for mobile |
+| Qwen2.5-Coder-1.5B-Instruct-MNN | ~3GB | Coding tasks |
+| phi-2-MNN | ~2.7GB | Microsoft Phi-2 |
 
-Commonly used models:
+Download from: https://huggingface.co/models?search=mnn
 
-- `Llama-3.2-1B-Instruct-MNN` (~1.2GB)
-- `Qwen2.5-Coder-1.5B-Instruct-MNN` (~3GB)
-- `Qwen3.5-4B-MNN` (~8GB)
-- `phi-2-MNN` (~2.7GB)
+### Model Folder Structure
+
+```
+models/
+└── Llama-3.2-1B-Instruct-MNN/
+    ├── config.json
+    ├── llm.mnn
+    └── tokenizer.txt
+```
+
+## Configuration
+
+### URL Parameters (Web UI)
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `apiUrl` | API endpoint | `http://localhost:8000/v1` |
+| `model` | Model name | Auto-detected |
+| `apiKey` | API key | `dummy` |
+
+Examples:
+```
+http://localhost:8000/
+http://localhost:8000/?model=phi-2
+```
+
+### Server Options
+
+```bash
+# Custom port
+mnn-server -p 8080
+
+# Custom model
+mnn-server -m "phi-2-MNN"
+
+# Custom models directory
+mnn-server -models /path/to/models
+```
 
 ## Project Structure
 
 ```
 mnn-llm-server/
-├── README.md              # This file
-├── LICENSE               # MIT License
-├── .gitignore            # Git ignore rules
-├── src/                  # Server source code
-│   ├── main.cpp          # Server (dynamic paths)
-│   └── CMakeLists.txt   # Build config
-├── web/                  # Web UI
-│   └── index.html        # xsukax-based chat UI
-├── scripts/              # CLI scripts
-│   ├── start.sh        # Main CLI (interactive + CLI)
-│   ├── build.sh        # Build script
-│   └── install-deps.sh # Dependency installer
-├── bin/                  # Compiled binaries
-│   └── mnn-server
-├── libs/                 # MNN libraries
-│   ├── libMNN.so       # MNN core
-│   └── libllm.so       # LLM engine
-├── models/              # Model files (download here)
-│   └── [model folders]
-└── logs/               # Server logs
-    └── server.log
-```
-
-## Requirements
-
-### Build Requirements
-
-- C++ compiler (GCC/Clang)
-- CMake 3.16+
-- Ninja build (optional, faster)
-- Git
-
-### Runtime Requirements
-
-- Linux / Termux (Android) / macOS
-- libMNN.so (MNN core library)
-- libllm.so (LLM engine)
-
-### Installing Dependencies
-
-```bash
-# Interactive installer
-./scripts/install-deps.sh
-
-# Or manually:
-# Debian/Ubuntu:
-sudo apt install build-essential cmake ninja-build git curl wget python3 tmux
-
-# Termux (Android):
-pkg install build-essential cmake ninja git curl wget python3 tmux
-
-# macOS:
-brew install cmake ninja python3 tmux git curl wget
-```
-
-## Building from Source
-
-### Quick Build
-
-```bash
-# Build for current platform
-./scripts/build.sh linux
-
-# Build for Termux (all architectures)
-./scripts/build.sh termux all
-
-# Build for specific Termux architecture
-./scripts/build.sh termux aarch64
-./scripts/build.sh termux arm
-```
-
-### Build Output
-
-After building, binaries are placed in `bin/`:
-
-| Binary | Platform |
-|--------|----------|
-| `bin/mnn-server-linux-x86_64` | Linux x86_64 |
-| `bin/mnn-server-aarch64` | Termux 64-bit ARM |
-| `bin/mnn-server-arm` | Termux 32-bit ARM |
-
-### Building MNN Libraries
-
-Building MNN from source is required only if you need custom optimizations.
-
-```bash
-# Clone MNN
-git clone https://github.com/alibaba/MNN.git
-
-# Build MNN core
-cd MNN
-./backend/cpu/build.sh
-
-# Build LLM engine
-./tools/llm/build.sh
-
-# Copy libraries to libs folder
-cp build/libMNN.so /path/to/mnn-llm-server/libs/
-cp build/libllm.so /path/to/mnn-llm-server/libs/
+├── README.md
+├── LICENSE
+├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── build.yml
+├── src/
+│   ├── main.cpp
+│   └── CMakeLists.txt
+├── web/
+│   └── index.html
+├── scripts/
+│   ├── start.sh
+│   ├── build.sh
+│   ├── model-download.sh
+│   └── install-deps.sh
+├── models/
+└── logs/
 ```
 
 ## Troubleshooting
 
 ### Server won't start
 
-1. Check if port is already in use:
+1. Check if model is downloaded:
    ```bash
-   ./scripts/start.sh --status
+   ls models/
    ```
 
 2. Check logs:
@@ -307,63 +274,87 @@ cp build/libllm.so /path/to/mnn-llm-server/libs/
    ./scripts/start.sh --logs
    ```
 
-3. Verify models exist:
+3. Check port availability:
    ```bash
-   ls models/
+   ./scripts/start.sh --status
    ```
 
 ### Slow first response
 
 The first request may take 30+ seconds as the model loads into memory. Subsequent requests should be much faster (~1-2s).
 
+### No GPU acceleration
+
+Check which backend is being used:
+```bash
+# Try specific backend
+MNN_BACKEND=opencl mnn-server
+# or
+MNN_BACKEND=vulkan mnn-server
+```
+
 ### Web UI not loading
 
 - Make sure firewall allows the port
-- Check if server is actually running: `./scripts/start.sh --status`
+- Check if server is running: `./scripts/start.sh --status`
 
-### Model not found
+## Building from Source
 
-1. Verify model is in `./models/` folder
-2. Check model folder structure:
-   ```
-   models/
-   └── Llama-3.2-1B-Instruct-MNN/
-       ├── config.json
-       ├── llm.mnn
-       └── tokenizer.txt
-   ```
+### Termux Build
 
-## License
+```bash
+# Install dependencies
+pkg install build-essential cmake ninja git curl wget python3
 
-MIT License - See [LICENSE](LICENSE) file.
+# Clone and build
+git clone https://github.com/abelbour/mnn-llm-server.git
+cd mnn-llm-server
+./scripts/build.sh termux aarch64
+```
+
+### Linux Build
+
+```bash
+# Install dependencies
+sudo apt install build-essential cmake ninja git curl wget python3
+
+# Clone and build
+git clone https://github.com/abelbour/mnn-llm-server.git
+cd mnn-llm-server
+./scripts/build.sh linux
+```
 
 ## GitHub Releases
 
-Pre-built binaries and Termux packages are available on GitHub releases.
+Pre-built binaries and packages are available on GitHub releases.
 
 ### Release Assets
 
 Each release includes:
 
-| Asset | Description |
-|-------|-------------|
-| `mnn-llm-server-aarch64` | Binary for 64-bit ARM |
-| `mnn-llm-server-arm` | Binary for 32-bit ARM |
-| `mnn-llm-server_X.X.X_all.deb` | Termux package (auto-selects correct binary) |
+| Asset | Type | Platform |
+|-------|------|----------|
+| `mnn-llm-server-cpu_all.deb` | .deb | Termux (all backends) |
+| `mnn-llm-server-opencl_aarch64.deb` | .deb | Termux (OpenCL) |
+| `mnn-llm-server-vulkan_aarch64.deb` | .deb | Termux (Vulkan) |
+| `mnn-llm-server-opencl-aarch64.zip` | .zip | Linux |
+| `mnn-llm-server-vulkan-aarch64.zip` | .zip | Linux |
+| `mnn-llm-server-cpu-aarch64.zip` | .zip | Linux |
+| `mnn-llm-server-cpu-arm.zip` | .zip | Linux |
 
-### Building Releases
+### Creating a Release
 
-1. Create a new release on GitHub with a tag (e.g., `v1.0.0`)
-2. GitHub Actions will automatically build both architectures
-3. Binaries and .deb package will be uploaded as release assets
-4. Users can download the .deb package and install via `dpkg -i`
+1. Go to https://github.com/abelbour/mnn-llm-server/releases/new
+2. Click "Draft a new release"
+3. Set tag version (e.g., v1.0.0)
+4. Add title and description
+5. Click "Publish release"
 
-### Manual Build (without release)
+GitHub Actions will automatically build and upload all packages.
 
-```bash
-# Build for both Termux architectures
-./scripts/build.sh termux all
-```
+## License
+
+MIT License - See [LICENSE](LICENSE) file.
 
 ## Credits
 
@@ -373,6 +364,6 @@ Each release includes:
 ## Support
 
 If you find this project useful, please consider:
-- ⭐ Starring the repository
-- 🐛 Reporting issues
-- 💡 Contributing improvements
+- Starring the repository
+- Reporting issues
+- Contributing improvements

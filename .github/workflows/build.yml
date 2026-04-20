@@ -4,127 +4,415 @@ on:
   release:
     types: [created]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - arch: aarch64-linux-gnu
-            target: aarch64
-            triple: aarch64-linux-gnu
-          - arch: arm-linux-gnueabihf
-            target: arm
-            triple: arm-linux-gnueabihf
+env:
+  MNN_REPO: https://github.com/alibaba/MNN.git
+  MNN_VERSION: latest
 
+jobs:
+  # Build OpenCL variant (aarch64) - priority 1
+  build-opencl-aarch64:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout server
         uses: actions/checkout@v4
+
+      - name: Clone MNN
+        run: |
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
 
       - name: Install cross-compile toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-${{ matrix.target }}-linux-gnu g++-${{ matrix.target }}-linux-gnu
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            cmake ninja-build python3
 
-      - name: Build for ${{ matrix.target }}
+      - name: Build MNN with OpenCL
         run: |
-          mkdir -p build-${{ matrix.target }}
-          cd build-${{ matrix.target }}
+          cd MNN
+          mkdir -p build
+          cd build
           cmake .. \
-            -DCMAKE_C_COMPILER=${{ matrix.target }}-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=${{ matrix.target }}-linux-gnu-g++ \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
             -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.target }}
-          make -j$(nproc)
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DMNN_BUILD_LLM=ON \
+            -DMNN_OPENCL=ON \
+            -DMNN_LOW_MEMORY=ON \
+            -GNinja
+          ninja -j$(nproc)
 
-      - name: Upload binary
+      - name: Build server
+        run: |
+          cd MNN
+          mkdir -p server-build
+          cd server-build
+          cmake ../src \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DMNN_ROOT="$(pwd)/../../MNN" \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Package for Linux
+        run: |
+          mkdir -p pkg/usr/bin pkg/usr/lib pkg/web pkg/models pkg/logs
+          cp MNN/server-build/mnn-server pkg/usr/bin/mnn-server-opencl
+          cp MNN/build/libMNN.so pkg/usr/lib/
+          cp MNN/build/libllm.so pkg/usr/lib/
+          cp -r web/* pkg/web/
+          touch pkg/models/.gitkeep
+          touch pkg/logs/.gitkeep
+          cd pkg && zip -r ../mnn-llm-server-opencl-aarch64.zip usr/
+
+      - name: Package for Termux
+        run: |
+          mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
+          mkdir -p debian/data/data/com.termux/files/usr/lib
+          mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
+          cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server-opencl
+          cp MNN/build/libMNN.so debian/data/data/com.termux/files/usr/lib/
+          cp MNN/build/libllm.so debian/data/data/com.termux/files/usr/lib/
+          cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
+          cat > debian/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          if [ -z "$MNN_BACKEND" ]; then
+            if /usr/bin/mnn-server-opencl --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-opencl /usr/bin/mnn-server
+            elif /usr/bin/mnn-server-vulkan --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-vulkan /usr/bin/mnn-server
+            elif /usr/bin/mnn-server-cpu --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-cpu /usr/bin/mnn-server
+            fi
+          else
+            ln -sf /usr/bin/mnn-server-$MNN_BACKEND /usr/bin/mnn-server
+          fi
+          exit 0
+          EOF
+          chmod 755 debian/DEBIAN/postinst
+          cat > debian/DEBIAN/control << 'EOF'
+          Package: mnn-llm-server-opencl
+          Version: ${{ github.event.release.tag_name }}
+          Architecture: aarch64
+          Maintainer: ${{ github.repository_owner }}
+          Description: MNN LLM Server with OpenCL support
+          EOF
+          dpkg-deb --build debian ../mnn-llm-server-opencl_aarch64.deb
+
+      - name: Upload Linux .zip
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: build-${{ matrix.target }}/mnn-server
-          asset_name: mnn-llm-server-${{ matrix.target }}
-          asset_content_type: application/octet-stream
+          asset_path: mnn-llm-server-opencl-aarch64.zip
+          asset_name: mnn-llm-server-opencl-aarch64.zip
+          asset_content_type: application/zip
 
-  package-deb:
-    needs: build
+      - name: Upload Termux .deb
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: mnn-llm-server-opencl_aarch64.deb
+          asset_name: mnn-llm-server-opencl_aarch64.deb
+          asset_content_type: application/x-deb
+
+  # Build Vulkan variant (aarch64) - priority 2
+  build-vulkan-aarch64:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout server
         uses: actions/checkout@v4
 
-      - name: Download binaries
+      - name: Clone MNN
         run: |
-          mkdir -p debian/usr/bin
-          mkdir -p debian/DEBIAN
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
 
-      - name: Download aarch64 binary
-        uses: actions/download-release-asset@v1
-        with:
-          release_id: ${{ github.event.release.id }}
-          asset_name: mnn-llm-server-aarch64
+      - name: Install cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            cmake ninja-build python3
+
+      - name: Build MNN with Vulkan
+        run: |
+          cd MNN
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DMNN_BUILD_LLM=ON \
+            -DMNN_VULKAN=ON \
+            -DMNN_LOW_MEMORY=ON \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Build server
+        run: |
+          cd MNN
+          mkdir -p server-build
+          cd server-build
+          cmake ../src \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DMNN_ROOT="$(pwd)/../../MNN" \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Package for Linux
+        run: |
+          mkdir -p pkg/usr/bin pkg/usr/lib pkg/web pkg/models pkg/logs
+          cp MNN/server-build/mnn-server pkg/usr/bin/mnn-server-vulkan
+          cp MNN/build/libMNN.so pkg/usr/lib/
+          cp MNN/build/libllm.so pkg/usr/lib/
+          cp -r web/* pkg/web/
+          touch pkg/models/.gitkeep
+          touch pkg/logs/.gitkeep
+          cd pkg && zip -r ../mnn-llm-server-vulkan-aarch64.zip usr/
+
+      - name: Package for Termux
+        run: |
+          mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
+          mkdir -p debian/data/data/com.termux/files/usr/lib
+          mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
+          cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server-vulkan
+          cp MNN/build/libMNN.so debian/data/data/com.termux/files/usr/lib/
+          cp MNN/build/libllm.so debian/data/data/com.termux/files/usr/lib/
+          cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
+          cat > debian/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          if [ -z "$MNN_BACKEND" ]; then
+            if /usr/bin/mnn-server-vulkan --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-vulkan /usr/bin/mnn-server
+            elif /usr/bin/mnn-server-opencl --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-opencl /usr/bin/mnn-server
+            elif /usr/bin/mnn-server-cpu --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-cpu /usr/bin/mnn-server
+            fi
+          else
+            ln -sf /usr/bin/mnn-server-$MNN_BACKEND /usr/bin/mnn-server
+          fi
+          exit 0
+          EOF
+          chmod 755 debian/DEBIAN/postinst
+          cat > debian/DEBIAN/control << 'EOF'
+          Package: mnn-llm-server-vulkan
+          Version: ${{ github.event.release.tag_name }}
+          Architecture: aarch64
+          Maintainer: ${{ github.repository_owner }}
+          Description: MNN LLM Server with Vulkan support
+          EOF
+          dpkg-deb --build debian ../mnn-llm-server-vulkan_aarch64.deb
+
+      - name: Upload Linux .zip
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download arm binary
-        uses: actions/download-release-asset@v1
         with:
-          release_id: ${{ github.event.release.id }}
-          asset_name: mnn-llm-server-arm
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: mnn-llm-server-vulkan-aarch64.zip
+          asset_name: mnn-llm-server-vulkan-aarch64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Termux .deb
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: mnn-llm-server-vulkan_aarch64.deb
+          asset_name: mnn-llm-server-vulkan_aarch64.deb
+          asset_content_type: application/x-deb
 
-      - name: Prepare binaries
-        run: |
-          mv mnn-llm-server-aarch64 debian/usr/bin/
-          mv mnn-llm-server-arm debian/usr/bin/
-          chmod 755 debian/usr/bin/mnn-llm-server-*
+  # Build CPU variant (aarch64) - priority 3 (fallback)
+  build-cpu-aarch64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout server
+        uses: actions/checkout@v4
 
-      - name: Create control file
+      - name: Clone MNN
         run: |
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
+
+      - name: Install cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            cmake ninja-build python3
+
+      - name: Build MNN CPU
+        run: |
+          cd MNN
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DMNN_BUILD_LLM=ON \
+            -DMNN_LOW_MEMORY=ON \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Build server
+        run: |
+          cd MNN
+          mkdir -p server-build
+          cd server-build
+          cmake ../src \
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+            -DMNN_ROOT="$(pwd)/../../MNN" \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Package for Linux
+        run: |
+          mkdir -p pkg/usr/bin pkg/usr/lib pkg/web pkg/models pkg/logs
+          cp MNN/server-build/mnn-server pkg/usr/bin/mnn-server-cpu
+          cp MNN/build/libMNN.so pkg/usr/lib/
+          cp MNN/build/libllm.so pkg/usr/lib/
+          cp -r web/* pkg/web/
+          touch pkg/models/.git_keep
+          touch pkg/logs/.git_keep
+          cd pkg && zip -r ../mnn-llm-server-cpu-aarch64.zip usr/
+
+      - name: Package for Termux
+        run: |
+          mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
+          mkdir -p debian/data/data/com.termux/files/usr/lib
+          mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
+          cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server-cpu
+          cp MNN/build/libMNN.so debian/data/data/com.termux/files/usr/lib/
+          cp MNN/build/libllm.so debian/data/data/com.termux/files/usr/lib/
+          cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
+          cat > debian/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          if [ -z "$MNN_BACKEND" ]; then
+            if /usr/bin/mnn-server-opencl --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-opencl /usr/bin/mnn-server
+            elif /usr/bin/mnn-server-vulkan --test 2>/dev/null; then
+              ln -sf /usr/bin/mnn-server-vulkan /usr/bin/mnn-server
+            else
+              ln -sf /usr/bin/mnn-server-cpu /usr/bin/mnn-server
+            fi
+          else
+            ln -sf /usr/bin/mnn-server-$MNN_BACKEND /usr/bin/mnn-server
+          fi
+          exit 0
+          EOF
+          chmod 755 debian/DEBIAN/postinst
           cat > debian/DEBIAN/control << 'EOF'
           Package: mnn-llm-server
           Version: ${{ github.event.release.tag_name }}
           Architecture: all
           Maintainer: ${{ github.repository_owner }}
-          Description: MNN LLM Server with OpenAI-compatible API
-           A native MNN server with persistent model loading,
-           streaming support, and web UI.
+          Description: MNN LLM Server with all GPU backends
+           Provides OpenCL, Vulkan, and CPU backends with auto-detection.
           EOF
+          dpkg-deb --build debian ../mnn-llm-server-cpu_all.deb
 
-      - name: Create conffiles
-        run: |
-          mkdir -p debian/etc/mnn-llm-server
-          touch debian/etc/mnn-llm-server/.keep
-
-      - name: Create postinst
-        run: |
-          cat > debian/DEBIAN/postinst << 'EOF'
-          #!/bin/bash
-          set -e
-
-          ARCH=$(dpkg --print-architecture)
-          if [ "$ARCH" = "aarch64" ]; then
-              ln -sf /usr/bin/mnn-llm-server-aarch64 /usr/bin/mnn-llm-server 2>/dev/null || true
-          elif [ "$ARCH" = "armhf" ]; then
-              ln -sf /usr/bin/mnn-llm-server-arm /usr/bin/mnn-llm-server 2>/dev/null || true
-          fi
-
-          exit 0
-          EOF
-          chmod 755 debian/DEBIAN/postinst
-
-      - name: Build .deb
-        run: |
-          dpkg-deb --build debian mnn-llm-server_${{ github.event.release.tag_name }}_all.deb
-
-      - name: Upload .deb package
+      - name: Upload Linux .zip
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: mnn-llm-server_${{ github.event.release.tag_name }}_all.deb
-          asset_name: mnn-llm-server_${{ github.event.release.tag_name }}_all.deb
+          asset_path: mnn-llm-server-cpu-aarch64.zip
+          asset_name: mnn-llm-server-cpu-aarch64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Termux .deb (default)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: mnn-llm-server-cpu_all.deb
+          asset_name: mnn-llm-server-cpu_all.deb
           asset_content_type: application/x-deb
+
+  # Build CPU variant (arm) - for 32-bit devices
+  build-cpu-arm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout server
+        uses: actions/checkout@v4
+
+      - name: Clone MNN
+        run: |
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
+
+      - name: Install cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+            cmake ninja-build python3
+
+      - name: Build MNN CPU (arm)
+        run: |
+          cd MNN
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=arm \
+            -DMNN_BUILD_LLM=ON \
+            -DMNN_LOW_MEMORY=ON \
+            -DMNN_SUPPORT_FP16_ARMV7=OFF \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Build server
+        run: |
+          cd MNN
+          mkdir -p server-build
+          cd server-build
+          cmake ../src \
+            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=arm \
+            -DMNN_ROOT="$(pwd)/../../MNN" \
+            -GNinja
+          ninja -j$(nproc)
+
+      - name: Package for Linux
+        run: |
+          mkdir -p pkg/usr/bin pkg/usr/lib pkg/web pkg/models pkg/logs
+          cp MNN/server-build/mnn-server pkg/usr/bin/mnn-server-cpu
+          cp MNN/build/libMNN.so pkg/usr/lib/
+          cp MNN/build/libllm.so pkg/usr/lib/
+          cp -r web/* pkg/web/
+          touch pkg/models/.git_keep
+          touch pkg/logs/.git_keep
+          cd pkg && zip -r ../mnn-llm-server-cpu-arm.zip usr/
+
+      - name: Upload Linux .zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: mnn-llm-server-cpu-arm.zip
+          asset_name: mnn-llm-server-cpu-arm.zip
+          asset_content_type: application/zip
