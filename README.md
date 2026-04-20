@@ -8,7 +8,7 @@ A high-performance, self-hosted LLM inference server built with Alibaba's MNN fr
 - **OpenAI-Compatible API**: Works with any OpenAI-compatible client
 - **Real-time Streaming**: Token-by-token streaming via Server-Sent Events (SSE)
 - **Web UI**: Built-in chat interface with markdown rendering
-- **Multiple GPU Backends**: Auto-detection (OpenCL → Vulkan → CPU)
+- **Multiple GPU Backends**: Auto-detection (OpenCL → Vulkan → QNN → OpenGL → CPU)
 - **Interactive CLI**: Menu-driven or direct CLI commands
 - **Dynamic Model Detection**: Automatically detects models in the models folder
 
@@ -17,11 +17,11 @@ A high-performance, self-hosted LLM inference server built with Alibaba's MNN fr
 ### Termux (Android)
 
 ```bash
-# Download the default package (includes all backends)
-wget https://github.com/abelbour/mnn-llm-server/releases/latest/download/mnn-llm-server-cpu_all.deb
+# Download the unified package (includes all backends)
+wget https://github.com/abelbour/mnn-llm-server/releases/latest/download/mnn-llm-server-aarch64.deb
 
 # Install
-dpkg -i mnn-llm-server-cpu_all.deb
+dpkg -i mnn-llm-server-aarch64.deb
 apt install -f  # Install dependencies
 
 # Download a model
@@ -36,12 +36,12 @@ Then open http://localhost:8000 in your browser.
 ### Linux (ARM)
 
 ```bash
-# Download desired variant
-wget https://github.com/abelbour/mnn-llm-server/releases/latest/download/mnn-llm-server-vulkan-aarch64.zip
+# Download unified package (includes all backends)
+wget https://github.com/abelbour/mnn-llm-server/releases/latest/download/mnn-llm-server-aarch64.zip
 
 # Extract
-unzip mnn-llm-server-vulkan-aarch64.zip
-cd mnn-llm-server-vulkan-aarch64
+unzip mnn-llm-server-aarch64.zip
+cd mnn-llm-server-aarch64
 
 # Download a model
 ./scripts/download-model.sh Llama-3.2-1B-Instruct-MNN
@@ -54,31 +54,28 @@ cd mnn-llm-server-vulkan-aarch64
 
 ### Termux Packages
 
-| Package | Backends | Description |
-|---------|----------|--------------|
-| `mnn-llm-server-cpu_all.deb` | OpenCL + Vulkan + CPU | Default, auto-detects best backend |
-| `mnn-llm-server-opencl_aarch64.deb` | OpenCL | OpenCL only |
-| `mnn-llm-server-vulkan_aarch64.deb` | Vulkan | Vulkan only |
+| Package | Description |
+|---------|-------------|
+| `mnn-llm-server-aarch64.deb` | 64-bit ARM (all GPU backends) |
+| `mnn-llm-server-arm.deb` | 32-bit ARM (CPU only) |
 
 **Install:**
 ```bash
-dpkg -i <package>.deb
+dpkg -i mnn-llm-server-aarch64.deb
 apt install -f
 ```
 
 ### Linux Zip Packages
 
-| Package | Backends | Architecture |
-|---------|----------|--------------|
-| `mnn-llm-server-opencl-aarch64.zip` | OpenCL | 64-bit ARM |
-| `mnn-llm-server-vulkan-aarch64.zip` | Vulkan | 64-bit ARM |
-| `mnn-llm-server-cpu-aarch64.zip` | CPU | 64-bit ARM |
-| `mnn-llm-server-cpu-arm.zip` | CPU | 32-bit ARM |
+| Package | Architecture |
+|---------|--------------|
+| `mnn-llm-server-aarch64.zip` | 64-bit ARM (all GPU backends) |
+| `mnn-llm-server-arm.zip` | 32-bit ARM (CPU only) |
 
 **Extract:**
 ```bash
-unzip <package>.zip
-cd <package>
+unzip mnn-llm-server-aarch64.zip
+cd mnn-llm-server-aarch64
 ./mnn-server
 ```
 
@@ -88,7 +85,7 @@ cd <package>
 
 The server automatically detects the best available backend in this order:
 ```
-OpenCL → Vulkan → CPU
+OpenCL → Vulkan → QNN → OpenGL → CPU
 ```
 
 ### Manual Selection
@@ -98,19 +95,14 @@ OpenCL → Vulkan → CPU
 # Set environment variable before running
 MNN_BACKEND=opencl mnn-server
 MNN_BACKEND=vulkan mnn-server
+MNN_BACKEND=qnn mnn-server
+MNN_BACKEND=opengl mnn-server
 MNN_BACKEND=cpu mnn-server
 ```
 
 **Linux:**
 ```bash
 MNN_BACKEND=vulkan ./mnn-server
-```
-
-### Check Available Backend
-
-```bash
-# Run with specific backend to test
-mnn-server-cpu --help  # or --test flag
 ```
 
 ## CLI Usage
@@ -183,9 +175,10 @@ mnn-download-model Qwen2.5-Coder-1.5B-Instruct-MNN
 ./scripts/download-model.sh Llama-3.2-1B-Instruct-MNN
 ```
 
-**Manual:**
-1. Download MNN model from HuggingFace
-2. Extract to `models/` folder
+**List available models:**
+```bash
+./scripts/download-model.sh --list
+```
 
 ### Available Models
 
@@ -291,12 +284,13 @@ Check which backend is being used:
 MNN_BACKEND=opencl mnn-server
 # or
 MNN_BACKEND=vulkan mnn-server
+# or
+MNN_BACKEND=cpu mnn-server
 ```
 
-### Web UI not loading
+### Check available GPU
 
-- Make sure firewall allows the port
-- Check if server is running: `./scripts/start.sh --status`
+Most Android devices have OpenCL or Vulkan, but not all. Use manual selection to test.
 
 ## Building from Source
 
@@ -334,13 +328,10 @@ Each release includes:
 
 | Asset | Type | Platform |
 |-------|------|----------|
-| `mnn-llm-server-cpu_all.deb` | .deb | Termux (all backends) |
-| `mnn-llm-server-opencl_aarch64.deb` | .deb | Termux (OpenCL) |
-| `mnn-llm-server-vulkan_aarch64.deb` | .deb | Termux (Vulkan) |
-| `mnn-llm-server-opencl-aarch64.zip` | .zip | Linux |
-| `mnn-llm-server-vulkan-aarch64.zip` | .zip | Linux |
-| `mnn-llm-server-cpu-aarch64.zip` | .zip | Linux |
-| `mnn-llm-server-cpu-arm.zip` | .zip | Linux |
+| `mnn-llm-server-aarch64.deb` | .deb | Termux (all backends) |
+| `mnn-llm-server-arm.deb` | .deb | Termux 32-bit |
+| `mnn-llm-server-aarch64.zip` | .zip | Linux |
+| `mnn-llm-server-arm.zip` | .zip | Linux 32-bit |
 
 ### Creating a Release
 
