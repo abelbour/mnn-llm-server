@@ -4,6 +4,10 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+  releases: write
+
 env:
   MNN_REPO: alibaba/MNN
 
@@ -85,43 +89,10 @@ jobs:
           cp -r web/* pkg/web/
           touch pkg/models/.git_keep
           touch pkg/logs/.git_keep
-          cd pkg && zip -r ../mnn-llm-server-aarch64.zip usr/
-
-      - name: Package for Termux
-        run: |
-          mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
-          mkdir -p debian/data/data/com.termux/files/usr/lib
-          mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
-          cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
-          cp MNN/build/libMNN.so debian/data/data/com.termux/files/usr/lib/
-          cp MNN/build/libllm.so debian/data/data/com.termux/files/usr/lib/
-          cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
-          cat > debian/DEBIAN/postinst << 'EOF'
-          #!/bin/bash
-          # Auto-detect backend: OpenCL → Vulkan → CPU
-          if [ -z "$MNN_BACKEND" ]; then
-            if /usr/bin/mnn-server --test opencl 2>/dev/null; then
-              export MNN_BACKEND=opencl
-            elif /usr/bin/mnn-server --test vulkan 2>/dev/null; then
-              export MNN_BACKEND=vulkan
-            else
-              export MNN_BACKEND=cpu
-            fi
-            echo "Auto-detected backend: $MNN_BACKEND"
-          fi
-          chmod +x /usr/bin/mnn-server
-          exit 0
-          EOF
-          chmod 755 debian/DEBIAN/postinst
-          cat > debian/DEBIAN/control << 'EOF'
-          Package: mnn-llm-server
-          Version: ${{ github.event.release.tag_name }}
-          Architecture: aarch64
-          Maintainer: ${{ github.repository_owner }}
-          Description: MNN LLM Server with all GPU backends
-           Supports OpenCL, Vulkan, CPU
-          EOF
-          dpkg-deb --build debian ../mnn-llm-server-aarch64.deb
+cd pkg && zip -r ../mnn-llm-server-aarch64.zip usr/
+          cp ../mnn-llm-server-aarch64.zip ${{ github.workspace }}/
+          cp ../mnn-llm-server-aarch64.deb ${{ github.workspace }}/
+          ls -la ${{ github.workspace }}/
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
@@ -210,6 +181,8 @@ jobs:
           touch pkg/models/.git_keep
           touch pkg/logs/.git_keep
           cd pkg && zip -r ../mnn-llm-server-arm.zip usr/
+          cp ../mnn-llm-server-arm.zip ${{ github.workspace }}/
+          cp ../mnn-llm-server-arm.deb ${{ github.workspace }}/
 
       - name: Package for Termux
         run: |
