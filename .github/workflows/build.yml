@@ -57,7 +57,7 @@ jobs:
 
       - name: Clone cpp-httplib
         run: |
-          git clone --depth 1 https://github.com/yhirose/cpp-httplib.git ../httplib
+          git clone https://github.com/yhirose/cpp-httplib.git ../httplib
           git clone --depth 1 https://github.com/nlohmann/json.git ../json
 
       - name: Build server
@@ -72,7 +72,7 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DMNN_ROOT="$(pwd)/../../MNN" \
             -DCPPHTTPLIB_INCLUDE="$(pwd)/../../httplib" \
-            -DNLOHMANN_INCLUDE="$(pwd)/../../json/include" \
+            -DNLOHMANN_INCLUDE="$(pwd)/../../json/single_include" \
             -GNinja
           ninja -j$(nproc)
 
@@ -192,7 +192,7 @@ jobs:
 
       - name: Clone cpp-httplib
         run: |
-          git clone --depth 1 https://github.com/yhirose/cpp-httplib.git ../httplib
+          git clone https://github.com/yhirose/cpp-httplib.git ../httplib
           git clone --depth 1 https://github.com/nlohmann/json.git ../json
 
       - name: Build server
@@ -207,7 +207,7 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=arm \
             -DMNN_ROOT="$(pwd)/../../MNN" \
             -DCPPHTTPLIB_INCLUDE="$(pwd)/../../httplib" \
-            -DNLOHMANN_INCLUDE="$(pwd)/../../json/include" \
+            -DNLOHMANN_INCLUDE="$(pwd)/../../json/single_include" \
             -GNinja
           ninja -j$(nproc)
 
