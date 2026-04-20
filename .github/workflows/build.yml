@@ -51,6 +51,7 @@ jobs:
             -DMNN_LOW_MEMORY=ON \
             -DMNN_ARM82=ON \
             -DMNN_OPENMP=ON \
+            -DMNN_SUPPORT_BF16=ON \
             -GNinja
           ninja -j$(nproc)
 
