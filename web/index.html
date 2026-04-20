@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xsukax Custom OpenAI WebUI</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; overflow: hidden; }
+        .container { display: flex; height: 100vh; }
+        .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid #30363d; }
+        .sidebar-brand { font-size: 12px; color: #6e7681; margin-bottom: 12px; text-align: center; font-weight: 600; }
+        .new-chat-btn { width: 100%; padding: 10px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+        .new-chat-btn:hover { background: #2ea043; }
+        .conversations { flex: 1; overflow-y: auto; padding: 8px; }
+        .conversation-item { padding: 10px 12px; margin-bottom: 4px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        .conversation-item:hover { background: #21262d; }
+        .conversation-item.active { background: #1f6feb; color: #fff; }
+        .conversation-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .conversation-actions { display: none; gap: 8px; }
+        .conversation-item:hover .conversation-actions { display: flex; }
+        .icon-btn { background: none; border: none; color: inherit; cursor: pointer; padding: 4px; border-radius: 4px; font-size: 12px; }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); }
+        .main-content { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+        .chat-header-title { display: flex; flex-direction: column; }
+        .chat-header-brand { font-size: 18px; font-weight: 600; }
+        .chat-header-subtitle { font-size: 12px; color: #6e7681; margin-top: 2px; }
+        .settings-btn { padding: 8px 16px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .settings-btn:hover { background: #30363d; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 24px; }
+        .message-wrapper { margin-bottom: 24px; display: flex; gap: 16px; }
+        .message-wrapper.user { flex-direction: row-reverse; }
+        .message-avatar { width: 32px; height: 32px; border-radius: 50%; background: #1f6feb; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+        .message-wrapper.user .message-avatar { background: #238636; }
+        .message-container { flex: 1; max-width: 80%; }
+        .message-content { background: #161b22; padding: 12px 16px; border-radius: 8px; border: 1px solid #30363d; line-height: 1.6; }
+        .message-wrapper.user .message-content { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        .message-actions { display: flex; gap: 8px; margin-top: 8px; opacity: 0; transition: opacity 0.2s; }
+        .message-wrapper:hover .message-actions { opacity: 1; }
+        .message-wrapper.user .message-actions { justify-content: flex-end; }
+        .copy-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .copy-btn:hover { background: #30363d; }
+        .copy-btn.copied { background: #238636; border-color: #238636; color: #fff; }
+        .message-content h1, .message-content h2, .message-content h3, .message-content h4, .message-content h5, .message-content h6 { margin-top: 16px; margin-bottom: 8px; font-weight: 600; }
+        .message-content h1 { font-size: 1.8em; }
+        .message-content h2 { font-size: 1.5em; }
+        .message-content h3 { font-size: 1.3em; }
+        .message-content p { margin: 8px 0; }
+        .message-content ul, .message-content ol { margin: 8px 0; padding-left: 24px; }
+        .message-content li { margin: 4px 0; }
+        .message-content pre { background: #0d1117; padding: 12px; border-radius: 6px; overflow-x: auto; margin: 12px 0; border: 1px solid #30363d; }
+        .message-content code { font-family: 'Courier New', Consolas, Monaco, monospace; font-size: 0.9em; background: #0d1117; padding: 2px 6px; border-radius: 3px; }
+        .message-content pre code { background: transparent; padding: 0; }
+        .message-content blockquote { border-left: 3px solid #30363d; padding-left: 12px; margin: 12px 0; color: #8b949e; }
+        .message-content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+        .message-content table th, .message-content table td { border: 1px solid #30363d; padding: 8px; text-align: left; }
+        .message-content table th { background: #0d1117; font-weight: 600; }
+        .message-content a { color: #58a6ff; text-decoration: none; }
+        .message-content a:hover { text-decoration: underline; }
+        .message-content hr { border: none; border-top: 1px solid #30363d; margin: 16px 0; }
+        .message-content img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
+        .message-wrapper.user .message-content code { background: rgba(0,0,0,0.2); }
+        .message-wrapper.user .message-content pre { background: rgba(0,0,0,0.3); border-color: rgba(0,0,0,0.2); }
+        .thinking-section { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+        .thinking-header { padding: 10px 12px; background: #161b22; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: background 0.2s; }
+        .thinking-header:hover { background: #1c2128; }
+        .thinking-title { font-size: 13px; font-weight: 600; color: #8b949e; display: flex; align-items: center; gap: 8px; }
+        .thinking-badge { font-size: 11px; background: #30363d; padding: 2px 8px; border-radius: 12px; font-weight: 500; }
+        .thinking-toggle { font-size: 12px; color: #6e7681; transition: transform 0.2s; }
+        .thinking-toggle.collapsed { transform: rotate(-90deg); }
+        .thinking-content { padding: 12px; color: #8b949e; font-size: 13px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
+        .thinking-content.collapsed { display: none; }
+        .thinking-content h1, .thinking-content h2, .thinking-content h3, .thinking-content h4 { color: #8b949e; font-size: 1em; margin-top: 8px; margin-bottom: 4px; }
+        .thinking-content code { background: #161b22; }
+        .thinking-content pre { background: #161b22; border-color: #21262d; }
+        .response-section { margin-top: 0; }
+        .chat-input-container { padding: 24px; border-top: 1px solid #30363d; }
+        .input-wrapper { display: flex; gap: 12px; align-items: flex-end; }
+        .chat-input { flex: 1; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px 16px; color: #c9d1d9; font-size: 14px; font-family: inherit; resize: vertical; min-height: 44px; max-height: 200px; }
+        .chat-input:focus { outline: none; border-color: #1f6feb; }
+        .send-btn { padding: 10px 24px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; white-space: nowrap; }
+        .send-btn:hover { background: #2ea043; }
+        .send-btn:disabled { background: #30363d; cursor: not-allowed; }
+        .send-btn.stop { background: #da3633; }
+        .send-btn.stop:hover { background: #e5534b; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .modal-header { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
+        .form-input { width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 14px; font-family: inherit; }
+        .form-input:focus { outline: none; border-color: #1f6feb; }
+        .form-select { width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 14px; font-family: inherit; }
+        .form-select:focus { outline: none; border-color: #1f6feb; }
+        .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+        .btn-primary { background: #238636; color: #fff; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-secondary:hover { background: #30363d; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #e5534b; }
+        .btn-info { background: #1f6feb; color: #fff; }
+        .btn-info:hover { background: #388bfd; }
+        .import-export-btns { display: flex; gap: 8px; margin-bottom: 16px; }
+        .small-btn { padding: 6px 12px; font-size: 12px; }
+        .empty-state { text-align: center; padding: 48px 24px; color: #6e7681; }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+        .fetch-models-section { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
+        .fetch-models-section .form-group { margin-bottom: 0; flex: 1; }
+        .model-mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; padding: 12px; background: #0d1117; border-radius: 6px; border: 1px solid #30363d; }
+        .model-mode-toggle label { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .model-mode-toggle input[type="radio"] { cursor: pointer; }
+        .info-text { font-size: 12px; color: #6e7681; margin-top: 4px; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0d1117; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">xsukax Custom OpenAI WebUI</div>
+                <button class="new-chat-btn" onclick="app.createNewConversation()">+ New Chat</button>
+            </div>
+            <div class="conversations" id="conversationList"></div>
+        </div>
+        
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="chat-header-title">
+                    <div class="chat-header-brand" id="chatTitle">xsukax Custom OpenAI WebUI</div>
+                    <div class="chat-header-subtitle">Advanced AI Chat Interface</div>
+                </div>
+                <button class="settings-btn" onclick="app.openSettings()">⚙ Settings</button>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="empty-state">
+                    <div class="empty-state-icon">💬</div>
+                    <h3>Welcome to xsukax Custom OpenAI WebUI</h3>
+                    <p>Start a conversation by sending a message</p>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <textarea class="chat-input" id="messageInput" placeholder="Type your message..." rows="1"></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="app.sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">API Settings</div>
+            <div class="import-export-btns">
+                <button class="btn btn-secondary small-btn" onclick="app.exportSettings()">📤 Export</button>
+                <button class="btn btn-secondary small-btn" onclick="app.importSettings()">📥 Import</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">API URL</label>
+                <input type="text" class="form-input" id="apiUrl" value="https://api.openai.com/v1/chat/completions" placeholder="https://api.openai.com/v1/chat/completions">
+            </div>
+            <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input type="password" class="form-input" id="apiKey" placeholder="sk-...">
+            </div>
+            
+            <div class="fetch-models-section">
+                <div class="form-group" style="flex: 1;">
+                    <label class="form-label">Available Models</label>
+                    <button class="btn btn-info" style="width: 100%;" onclick="app.fetchAvailableModels()">🔄 Fetch Models</button>
+                </div>
+            </div>
+
+            <div class="model-mode-toggle">
+                <label><input type="radio" name="modelMode" value="select" id="modelModeSelect" checked onchange="app.toggleModelMode()"> Select Model</label>
+                <label><input type="radio" name="modelMode" value="manual" id="modelModeManual" onchange="app.toggleModelMode()"> Manual Input</label>
+            </div>
+            
+            <div class="form-group" id="modelSelectGroup">
+                <label class="form-label">AI Model (Select)</label>
+                <select class="form-select" id="apiModelSelect">
+                    <option value="">-- Click "Fetch Models" first --</option>
+                </select>
+                <div class="info-text">Fetch models using your API credentials above</div>
+            </div>
+
+            <div class="form-group" id="modelInputGroup" style="display: none;">
+                <label class="form-label">AI Model (Manual)</label>
+                <input type="text" class="form-input" id="apiModelInput" placeholder="gpt-4">
+                <div class="info-text">Enter model name manually if fetch fails</div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="app.closeSettings()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.saveSettings()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="notificationModal">
+        <div class="modal-content">
+            <div class="modal-header" id="notificationTitle">Notification</div>
+            <p id="notificationMessage"></p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="app.closeNotification()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <div class="modal-header">Confirm Action</div>
+            <p id="confirmMessage"></p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="app.closeConfirm()">Cancel</button>
+                <button class="btn btn-danger" id="confirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="renameModal">
+        <div class="modal-content">
+            <div class="modal-header">Rename Conversation</div>
+            <div class="form-group">
+                <label class="form-label">New Name</label>
+                <input type="text" class="form-input" id="renameInput">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="app.closeRename()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.confirmRename()">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="exportModal">
+        <div class="modal-content">
+            <div class="modal-header">Export Conversation</div>
+            <p>Choose export format:</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="app.closeExport()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.exportConversation('txt')">Text</button>
+                <button class="btn btn-primary" onclick="app.exportConversation('json')">JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="importFileInput" style="display: none;" accept=".json">
+
+    <script>
+        const app = {
+            settings: { apiUrl: 'https://api.openai.com/v1/chat/completions', apiModel: 'gpt-4', apiKey: '', modelMode: 'select' },
+            conversations: [],
+            currentConversationId: null,
+            abortController: null,
+            renameConversationId: null,
+            exportConversationId: null,
+            availableModels: [],
+
+            init() {
+                marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+                this.loadSettings();
+                this.loadConversations();
+                if (!this.settings.apiKey) {
+                    this.openSettings();
+                }
+                if (this.conversations.length > 0) {
+                    this.switchConversation(this.conversations[0].id);
+                }
+                this.autoResizeTextarea();
+                this.setupImportHandler();
+            },
+
+            loadSettings() {
+                const stored = localStorage.getItem('xsukaxAIChatSettings');
+                if (stored) this.settings = JSON.parse(stored);
+            },
+
+            saveSettingsToStorage() {
+                localStorage.setItem('xsukaxAIChatSettings', JSON.stringify(this.settings));
+            },
+
+            loadConversations() {
+                const stored = localStorage.getItem('xsukaxAIChatConversations');
+                if (stored) this.conversations = JSON.parse(stored);
+                this.renderConversationList();
+            },
+
+            saveConversations() {
+                localStorage.setItem('xsukaxAIChatConversations', JSON.stringify(this.conversations));
+            },
+
+            openSettings() {
+                document.getElementById('apiUrl').value = this.settings.apiUrl;
+                document.getElementById('apiKey').value = this.settings.apiKey;
+                
+                if (this.settings.modelMode === 'manual') {
+                    document.getElementById('modelModeManual').checked = true;
+                    document.getElementById('apiModelInput').value = this.settings.apiModel;
+                } else {
+                    document.getElementById('modelModeSelect').checked = true;
+                }
+                
+                this.toggleModelMode();
+                
+                const storedModels = localStorage.getItem('xsukaxAvailableModels');
+                if (storedModels) {
+                    this.availableModels = JSON.parse(storedModels);
+                    this.populateModelSelect();
+                    if (this.settings.apiModel) {
+                        document.getElementById('apiModelSelect').value = this.settings.apiModel;
+                    }
+                }
+                
+                document.getElementById('settingsModal').classList.add('active');
+            },
+
+            closeSettings() {
+                document.getElementById('settingsModal').classList.remove('active');
+            },
+
+            toggleModelMode() {
+                const isManual = document.getElementById('modelModeManual').checked;
+                document.getElementById('modelSelectGroup').style.display = isManual ? 'none' : 'block';
+                document.getElementById('modelInputGroup').style.display = isManual ? 'block' : 'none';
+            },
+
+            async fetchAvailableModels() {
+                const apiUrl = document.getElementById('apiUrl').value.trim();
+                const apiKey = document.getElementById('apiKey').value.trim();
+                
+                if (!apiUrl || !apiKey) {
+                    this.showNotification('Error', 'Please enter API URL and API Key first');
+                    return;
+                }
+                
+                // Build correct models URL - use origin + /v1/models
+                let baseUrl = apiUrl;
+                if (baseUrl.includes('/chat/completions')) {
+                    baseUrl = baseUrl.replace('/chat/completions', '');
+                }
+                const modelsUrl = baseUrl + '/models';
+                
+                try {
+                    this.showNotification('Fetching Models', 'Please wait...');
+                    
+                    const response = await fetch(modelsUrl, {
+                        method: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to fetch models: ' + response.status);
+                    
+                    const data = await response.json();
+                    
+                    if (data.data && Array.isArray(data.data)) {
+                        this.availableModels = data.data.map(model => model.id).sort();
+                        localStorage.setItem('xsukaxAvailableModels', JSON.stringify(this.availableModels));
+                        this.populateModelSelect();
+                        this.closeNotification();
+                        this.showNotification('Success', 'Found ' + this.availableModels.length + ' models');
+                    } else {
+                        throw new Error('Invalid response format');
+                    }
+                } catch (error) {
+                    this.closeNotification();
+                    this.showNotification('Fetch Failed', 'Could not fetch models: ' + error.message + '. Please use Manual Input mode.');
+                    document.getElementById('modelModeManual').checked = true;
+                    this.toggleModelMode();
+                }
+            },
+
+            populateModelSelect() {
+                const select = document.getElementById('apiModelSelect');
+                select.innerHTML = '<option value="">-- Select a model --</option>';
+                
+                this.availableModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    select.appendChild(option);
+                });
+            },
+
+            saveSettings() {
+                const isManual = document.getElementById('modelModeManual').checked;
+                
+                this.settings.apiUrl = document.getElementById('apiUrl').value.trim();
+                this.settings.apiKey = document.getElementById('apiKey').value.trim();
+                this.settings.modelMode = isManual ? 'manual' : 'select';
+                
+                if (isManual) {
+                    this.settings.apiModel = document.getElementById('apiModelInput').value.trim();
+                } else {
+                    this.settings.apiModel = document.getElementById('apiModelSelect').value;
+                }
+                
+                if (!this.settings.apiKey) {
+                    this.showNotification('Error', 'API Key is required');
+                    return;
+                }
+                
+                if (!this.settings.apiModel) {
+                    this.showNotification('Error', 'Please select or enter an AI Model');
+                    return;
+                }
+                
+                this.saveSettingsToStorage();
+                this.closeSettings();
+                this.showNotification('Success', 'Settings saved successfully');
+            },
+
+            exportSettings() {
+                const data = JSON.stringify(this.settings, null, 2);
+                this.downloadFile('xsukax-ai-chat-settings.json', data);
+            },
+
+            importSettings() {
+                document.getElementById('importFileInput').click();
+            },
+
+            setupImportHandler() {
+                document.getElementById('importFileInput').addEventListener('change', (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const imported = JSON.parse(e.target.result);
+                            this.settings = imported;
+                            this.saveSettingsToStorage();
+                            document.getElementById('apiUrl').value = this.settings.apiUrl;
+                            document.getElementById('apiKey').value = this.settings.apiKey;
+                            if (this.settings.modelMode === 'manual') {
+                                document.getElementById('apiModelInput').value = this.settings.apiModel;
+                                document.getElementById('modelModeManual').checked = true;
+                            } else {
+                                document.getElementById('apiModelSelect').value = this.settings.apiModel;
+                                document.getElementById('modelModeSelect').checked = true;
+                            }
+                            this.toggleModelMode();
+                            this.showNotification('Success', 'Settings imported successfully');
+                        } catch (err) {
+                            this.showNotification('Error', 'Invalid settings file');
+                        }
+                    };
+                    reader.readAsText(file);
+                    event.target.value = '';
+                });
+            },
+
+            createNewConversation() {
+                const conversation = {
+                    id: Date.now().toString(),
+                    title: 'New Chat',
+                    messages: [],
+                    createdAt: new Date().toISOString()
+                };
+                this.conversations.unshift(conversation);
+                this.saveConversations();
+                this.switchConversation(conversation.id);
+                this.renderConversationList();
+            },
+
+            switchConversation(id) {
+                this.currentConversationId = id;
+                this.renderMessages();
+                this.renderConversationList();
+            },
+
+            getCurrentConversation() {
+                return this.conversations.find(c => c.id === this.currentConversationId);
+            },
+
+            renderConversationList() {
+                const list = document.getElementById('conversationList');
+                const html = this.conversations.map(conv => {
+                    const isActive = conv.id === this.currentConversationId;
+                    return '<div class="conversation-item ' + (isActive ? 'active' : '') + '" onclick="app.switchConversation(\'' + conv.id + '\')">' +
+                        '<span class="conversation-title">' + this.escapeHtml(conv.title) + '</span>' +
+                        '<div class="conversation-actions">' +
+                        '<button class="icon-btn" onclick="event.stopPropagation(); app.openRename(\'' + conv.id + '\')" title="Rename">✏️</button>' +
+                        '<button class="icon-btn" onclick="event.stopPropagation(); app.openExportModal(\'' + conv.id + '\')" title="Export">💾</button>' +
+                        '<button class="icon-btn" onclick="event.stopPropagation(); app.deleteConversation(\'' + conv.id + '\')" title="Delete">🗑️</button>' +
+                        '</div></div>';
+                }).join('');
+                list.innerHTML = html;
+            },
+
+            openRename(id) {
+                this.renameConversationId = id;
+                const conv = this.conversations.find(c => c.id === id);
+                document.getElementById('renameInput').value = conv.title;
+                document.getElementById('renameModal').classList.add('active');
+            },
+
+            closeRename() {
+                document.getElementById('renameModal').classList.remove('active');
+                this.renameConversationId = null;
+            },
+
+            confirmRename() {
+                const newTitle = document.getElementById('renameInput').value.trim();
+                if (!newTitle) return;
+                
+                const conv = this.conversations.find(c => c.id === this.renameConversationId);
+                conv.title = newTitle;
+                this.saveConversations();
+                this.renderConversationList();
+                this.closeRename();
+            },
+
+            deleteConversation(id) {
+                this.showConfirm('Are you sure you want to delete this conversation?', () => {
+                    this.conversations = this.conversations.filter(c => c.id !== id);
+                    this.saveConversations();
+                    if (this.currentConversationId === id) {
+                        if (this.conversations.length > 0) {
+                            this.switchConversation(this.conversations[0].id);
+                        } else {
+                            this.currentConversationId = null;
+                            this.renderMessages();
+                        }
+                    }
+                    this.renderConversationList();
+                });
+            },
+
+            openExportModal(id) {
+                this.exportConversationId = id;
+                document.getElementById('exportModal').classList.add('active');
+            },
+
+            closeExport() {
+                document.getElementById('exportModal').classList.remove('active');
+                this.exportConversationId = null;
+            },
+
+            exportConversation(format) {
+                const conv = this.conversations.find(c => c.id === this.exportConversationId);
+                const filename = conv.title.replace(/[^a-z0-9]/gi, '_') + '_' + new Date().toISOString().split('T')[0];
+                
+                if (format === 'json') {
+                    this.downloadFile(filename + '.json', JSON.stringify(conv, null, 2));
+                } else {
+                    let text = conv.title + '\n' + '='.repeat(conv.title.length) + '\n\n';
+                    conv.messages.forEach(msg => {
+                        text += msg.role.toUpperCase() + ':\n';
+                        if (msg.thinking) {
+                            text += '[THINKING]\n' + msg.thinking + '\n[/THINKING]\n\n';
+                        }
+                        text += msg.content + '\n\n';
+                    });
+                    this.downloadFile(filename + '.txt', text);
+                }
+                this.closeExport();
+            },
+
+            renderMessages() {
+                const conv = this.getCurrentConversation();
+                const container = document.getElementById('chatMessages');
+                
+                if (!conv || conv.messages.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><h3>Welcome to xsukax Custom OpenAI WebUI</h3><p>Start a conversation by sending a message</p></div>';
+                    document.getElementById('chatTitle').textContent = 'xsukax Custom OpenAI WebUI';
+                    return;
+                }
+                
+                document.getElementById('chatTitle').textContent = conv.title;
+                const html = conv.messages.map((msg, idx) => {
+                    let thinkingHtml = '';
+                    let fullContent = msg.content;
+                    
+                    if (msg.thinking) {
+                        fullContent = msg.thinking + '\n\n' + msg.content;
+                        const wordCount = msg.thinking.trim().split(/\s+/).length;
+                        const approxTokens = Math.ceil(wordCount * 1.3);
+                        thinkingHtml = '<div class="thinking-section"><div class="thinking-header" onclick="app.toggleThinking(this)"><div class="thinking-title"><span>🧠 Thinking Process</span><span class="thinking-badge">~' + approxTokens + ' tokens</span></div><div class="thinking-toggle">▼</div></div><div class="thinking-content">' + this.formatMessage(msg.thinking) + '</div></div>';
+                    }
+                    
+                    const copyId = 'copy-' + idx;
+                    const escapedContent = this.escapeForJs(fullContent);
+                    
+                    return '<div class="message-wrapper ' + msg.role + '">' +
+                        '<div class="message-avatar">' + (msg.role === 'user' ? 'U' : 'AI') + '</div>' +
+                        '<div class="message-container">' +
+                        '<div class="message-content">' + thinkingHtml + '<div class="response-section">' + this.formatMessage(msg.content) + '</div></div>' +
+                        '<div class="message-actions"><button class="copy-btn" id="' + copyId + '" onclick="app.copyToClipboard(\'' + escapedContent + '\', \'' + copyId + '\')">📋 Copy</button></div>' +
+                        '</div></div>';
+                }).join('');
+                container.innerHTML = html;
+                container.scrollTop = container.scrollHeight;
+            },
+
+            formatMessage(content) {
+                try {
+                    return marked.parse(content);
+                } catch (error) {
+                    return this.escapeHtml(content).replace(/\n/g, '<br>');
+                }
+            },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            },
+
+            escapeForJs(text) {
+                return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
+            },
+
+            async copyToClipboard(text, buttonId) {
+                const cleanText = text.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                
+                try {
+                    await navigator.clipboard.writeText(cleanText);
+                    const btn = document.getElementById(buttonId);
+                    if (btn) {
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '✓ Copied';
+                        btn.classList.add('copied');
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.classList.remove('copied');
+                        }, 2000);
+                    }
+                } catch (err) {
+                    this.showNotification('Error', 'Failed to copy to clipboard');
+                }
+            },
+
+            async sendMessage() {
+                const input = document.getElementById('messageInput');
+                const sendBtn = document.getElementById('sendBtn');
+                const message = input.value.trim();
+                
+                if (sendBtn.classList.contains('stop')) {
+                    this.stopStreaming();
+                    return;
+                }
+                
+                if (!message) return;
+                if (!this.settings.apiKey) {
+                    this.showNotification('Error', 'Please configure your API key in settings');
+                    return;
+                }
+                
+                let conv = this.getCurrentConversation();
+                if (!conv) {
+                    this.createNewConversation();
+                    conv = this.getCurrentConversation();
+                }
+                
+                conv.messages.push({ role: 'user', content: message });
+                
+                if (conv.messages.length === 1 || conv.title === 'New Chat') {
+                    conv.title = message.substring(0, 30) + (message.length > 30 ? '...' : '');
+                    this.renderConversationList();
+                }
+                
+                input.value = '';
+                input.style.height = 'auto';
+                this.renderMessages();
+                
+                sendBtn.textContent = 'Stop';
+                sendBtn.classList.add('stop');
+                input.disabled = true;
+                
+                await this.streamAIResponse(conv);
+                
+                sendBtn.textContent = 'Send';
+                sendBtn.classList.remove('stop');
+                input.disabled = false;
+                input.focus();
+                
+                this.saveConversations();
+            },
+
+            async streamAIResponse(conv) {
+                this.abortController = new AbortController();
+                
+                const aiMessage = { role: 'assistant', content: '', thinking: '' };
+                conv.messages.push(aiMessage);
+                
+                const container = document.getElementById('chatMessages');
+                const thinkingId = Date.now();
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message-wrapper assistant';
+                messageDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-container"><div class="message-content"><div class="thinking-section" id="thinking-' + thinkingId + '" style="display: none;"><div class="thinking-header" onclick="app.toggleThinking(this)"><div class="thinking-title"><span>🧠 Thinking Process</span><span class="thinking-badge" id="thinking-badge-' + thinkingId + '">0 tokens</span></div><div class="thinking-toggle">▼</div></div><div class="thinking-content" id="thinking-content-' + thinkingId + '"></div></div><div class="response-section" id="response-' + thinkingId + '"></div></div><div class="message-actions"><button class="copy-btn" id="copy-streaming" onclick="app.copyStreamingMessage()">📋 Copy</button></div></div>';
+                container.appendChild(messageDiv);
+                
+                const thinkingSection = document.getElementById('thinking-' + thinkingId);
+                const thinkingContentDiv = document.getElementById('thinking-content-' + thinkingId);
+                const thinkingBadge = document.getElementById('thinking-badge-' + thinkingId);
+                const responseDiv = document.getElementById('response-' + thinkingId);
+                
+                let fullText = '';
+                
+                try {
+                    const response = await fetch(this.settings.apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.settings.apiKey },
+                        body: JSON.stringify({ model: this.settings.apiModel, messages: conv.messages.slice(0, -1), stream: true }),
+                        signal: this.abortController.signal
+                    });
+                    
+                    if (!response.ok) throw new Error('API error: ' + response.status);
+                    
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n').filter(line => line.trim());
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const data = line.slice(6);
+                                if (data === '[DONE]') break;
+                                
+                                try {
+                                    const parsed = JSON.parse(data);
+                                    const content = parsed.choices[0]?.delta?.content || '';
+                                    
+                                    if (content) {
+                                        fullText += content;
+                                        
+                                        const extracted = this.extractThinkingRealtime(fullText);
+                                        
+                                        if (extracted.thinking) {
+                                            aiMessage.thinking = extracted.thinking;
+                                            thinkingSection.style.display = 'block';
+                                            thinkingContentDiv.innerHTML = this.formatMessage(extracted.thinking);
+                                            const wordCount = extracted.thinking.trim().split(/\s+/).length;
+                                            const approxTokens = Math.ceil(wordCount * 1.3);
+                                            thinkingBadge.textContent = '~' + approxTokens + ' tokens';
+                                        }
+                                        
+                                        if (extracted.response) {
+                                            aiMessage.content = extracted.response;
+                                            responseDiv.innerHTML = this.formatMessage(extracted.response);
+                                        } else if (!extracted.thinking) {
+                                            aiMessage.content = fullText;
+                                            responseDiv.innerHTML = this.formatMessage(fullText);
+                                        }
+                                        
+                                        container.scrollTop = container.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    console.error('Parse error:', e);
+                                }
+                            }
+                        }
+                    }
+                    
+                    const finalExtracted = this.extractThinkingRealtime(fullText);
+                    aiMessage.thinking = finalExtracted.thinking;
+                    aiMessage.content = finalExtracted.response || fullText;
+                    
+                    if (finalExtracted.thinking) {
+                        thinkingSection.style.display = 'block';
+                        thinkingContentDiv.innerHTML = this.formatMessage(finalExtracted.thinking);
+                        const wordCount = finalExtracted.thinking.trim().split(/\s+/).length;
+                        const approxTokens = Math.ceil(wordCount * 1.3);
+                        thinkingBadge.textContent = '~' + approxTokens + ' tokens';
+                    }
+                    
+                    responseDiv.innerHTML = this.formatMessage(aiMessage.content);
+                    
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        aiMessage.content = (aiMessage.content || fullText) + '\n\n[Response stopped by user]';
+                    } else {
+                        aiMessage.content = 'Error: ' + error.message;
+                        this.showNotification('Error', 'Failed to get AI response: ' + error.message);
+                    }
+                    responseDiv.innerHTML = this.formatMessage(aiMessage.content);
+                }
+                
+                this.abortController = null;
+            },
+
+            extractThinkingRealtime(text) {
+                const patterns = [
+                    { start: '<think>', end: '</think>' },
+                    { start: '<thinking>', end: '</thinking>' },
+                    { start: '<Think>', end: '</Think>' }
+                ];
+                
+                for (const pattern of patterns) {
+                    const endIdx = text.indexOf(pattern.end);
+                    if (endIdx !== -1) {
+                        const startIdx = text.indexOf(pattern.start);
+                        if (startIdx !== -1) {
+                            const thinking = text.substring(startIdx + pattern.start.length, endIdx);
+                            const response = text.substring(endIdx + pattern.end.length).trim();
+                            return { thinking: thinking, response: response };
+                        } else {
+                            const thinking = text.substring(0, endIdx);
+                            const response = text.substring(endIdx + pattern.end.length).trim();
+                            return { thinking: thinking, response: response };
+                        }
+                    }
+                }
+                
+                return { thinking: '', response: text };
+            },
+
+            async copyStreamingMessage() {
+                const conv = this.getCurrentConversation();
+                if (!conv || conv.messages.length === 0) return;
+                
+                const lastMessage = conv.messages[conv.messages.length - 1];
+                if (lastMessage.role !== 'assistant') return;
+                
+                let fullContent = lastMessage.content;
+                if (lastMessage.thinking) {
+                    fullContent = lastMessage.thinking + '\n\n' + lastMessage.content;
+                }
+                
+                try {
+                    await navigator.clipboard.writeText(fullContent);
+                    const btn = document.getElementById('copy-streaming');
+                    if (btn) {
+                        const originalText = btn.innerHTML;
+                        btn.innerHTML = '✓ Copied';
+                        btn.classList.add('copied');
+                        setTimeout(() => {
+                            btn.innerHTML = originalText;
+                            btn.classList.remove('copied');
+                        }, 2000);
+                    }
+                } catch (err) {
+                    this.showNotification('Error', 'Failed to copy to clipboard');
+                }
+            },
+
+            toggleThinking(headerElement) {
+                const thinkingContent = headerElement.nextElementSibling;
+                const toggle = headerElement.querySelector('.thinking-toggle');
+                
+                if (thinkingContent.classList.contains('collapsed')) {
+                    thinkingContent.classList.remove('collapsed');
+                    toggle.classList.remove('collapsed');
+                } else {
+                    thinkingContent.classList.add('collapsed');
+                    toggle.classList.add('collapsed');
+                }
+            },
+
+            stopStreaming() {
+                if (this.abortController) {
+                    this.abortController.abort();
+                    this.abortController = null;
+                }
+            },
+
+            autoResizeTextarea() {
+                const textarea = document.getElementById('messageInput');
+                textarea.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+                });
+                
+                textarea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        app.sendMessage();
+                    }
+                });
+            },
+
+            showNotification(title, message) {
+                document.getElementById('notificationTitle').textContent = title;
+                document.getElementById('notificationMessage').textContent = message;
+                document.getElementById('notificationModal').classList.add('active');
+            },
+
+            closeNotification() {
+                document.getElementById('notificationModal').classList.remove('active');
+            },
+
+            showConfirm(message, callback) {
+                document.getElementById('confirmMessage').textContent = message;
+                document.getElementById('confirmBtn').onclick = () => {
+                    callback();
+                    this.closeConfirm();
+                };
+                document.getElementById('confirmModal').classList.add('active');
+            },
+
+            closeConfirm() {
+                document.getElementById('confirmModal').classList.remove('active');
+            },
+
+            downloadFile(filename, content) {
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        };
+
+        app.init();
+        
+        // Simple prefill - no model fetching, user clicks "Fetch Models" manually
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const serverUrl = params.get('apiUrl') || window.location.origin + '/v1';
+            const model = params.get('model') || 'Llama-3.2-1B';
+            const apiKey = params.get('apiKey') || 'dummy';
+            
+            const defaultSettings = {
+                apiUrl: serverUrl + '/chat/completions',
+                apiModel: model,
+                apiKey: apiKey,
+                modelMode: 'select'
+            };
+            
+            localStorage.setItem('xsukaxAIChatSettings', JSON.stringify(defaultSettings));
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+# Build artifacts
+bin/
+build/
+src/build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Compiled server
+mnn-server
+
+# MNN libraries (include pre-built if available)
+libs/*.so
+libs/*.dylib
+
+# Models (download separately)
+models/
+*.bin
+*.pth
+*.h5
+*.safetensors
+
+# Logs
+logs/
+*.log
+
+# Config
+.config
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+
+# Node
+node_modules/
+
+# Temporary
+tmp/
+temp/
+*.tmp

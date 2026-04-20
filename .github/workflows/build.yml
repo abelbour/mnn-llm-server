@@ -1,0 +1,130 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: aarch64-linux-gnu
+            target: aarch64
+            triple: aarch64-linux-gnu
+          - arch: arm-linux-gnueabihf
+            target: arm
+            triple: arm-linux-gnueabihf
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-${{ matrix.target }}-linux-gnu g++-${{ matrix.target }}-linux-gnu
+
+      - name: Build for ${{ matrix.target }}
+        run: |
+          mkdir -p build-${{ matrix.target }}
+          cd build-${{ matrix.target }}
+          cmake .. \
+            -DCMAKE_C_COMPILER=${{ matrix.target }}-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=${{ matrix.target }}-linux-gnu-g++ \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.target }}
+          make -j$(nproc)
+
+      - name: Upload binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: build-${{ matrix.target }}/mnn-server
+          asset_name: mnn-llm-server-${{ matrix.target }}
+          asset_content_type: application/octet-stream
+
+  package-deb:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download binaries
+        run: |
+          mkdir -p debian/usr/bin
+          mkdir -p debian/DEBIAN
+
+      - name: Download aarch64 binary
+        uses: actions/download-release-asset@v1
+        with:
+          release_id: ${{ github.event.release.id }}
+          asset_name: mnn-llm-server-aarch64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download arm binary
+        uses: actions/download-release-asset@v1
+        with:
+          release_id: ${{ github.event.release.id }}
+          asset_name: mnn-llm-server-arm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare binaries
+        run: |
+          mv mnn-llm-server-aarch64 debian/usr/bin/
+          mv mnn-llm-server-arm debian/usr/bin/
+          chmod 755 debian/usr/bin/mnn-llm-server-*
+
+      - name: Create control file
+        run: |
+          cat > debian/DEBIAN/control << 'EOF'
+          Package: mnn-llm-server
+          Version: ${{ github.event.release.tag_name }}
+          Architecture: all
+          Maintainer: ${{ github.repository_owner }}
+          Description: MNN LLM Server with OpenAI-compatible API
+           A native MNN server with persistent model loading,
+           streaming support, and web UI.
+          EOF
+
+      - name: Create conffiles
+        run: |
+          mkdir -p debian/etc/mnn-llm-server
+          touch debian/etc/mnn-llm-server/.keep
+
+      - name: Create postinst
+        run: |
+          cat > debian/DEBIAN/postinst << 'EOF'
+          #!/bin/bash
+          set -e
+
+          ARCH=$(dpkg --print-architecture)
+          if [ "$ARCH" = "aarch64" ]; then
+              ln -sf /usr/bin/mnn-llm-server-aarch64 /usr/bin/mnn-llm-server 2>/dev/null || true
+          elif [ "$ARCH" = "armhf" ]; then
+              ln -sf /usr/bin/mnn-llm-server-arm /usr/bin/mnn-llm-server 2>/dev/null || true
+          fi
+
+          exit 0
+          EOF
+          chmod 755 debian/DEBIAN/postinst
+
+      - name: Build .deb
+        run: |
+          dpkg-deb --build debian mnn-llm-server_${{ github.event.release.tag_name }}_all.deb
+
+      - name: Upload .deb package
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: mnn-llm-server_${{ github.event.release.tag_name }}_all.deb
+          asset_name: mnn-llm-server_${{ github.event.release.tag_name }}_all.deb
+          asset_content_type: application/x-deb
