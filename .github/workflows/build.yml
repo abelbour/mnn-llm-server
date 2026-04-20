@@ -72,7 +72,7 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DMNN_ROOT="$(pwd)/../../MNN" \
             -DCPPHTTPLIB_INCLUDE="$(pwd)/../../../httplib" \
-            -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include" \
+            -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include/nlohmann" \
             -GNinja
           ninja -j$(nproc)
 
@@ -207,7 +207,7 @@ jobs:
             -DCMAKE_SYSTEM_PROCESSOR=arm \
             -DMNN_ROOT="$(pwd)/../../MNN" \
             -DCPPHTTPLIB_INCLUDE="$(pwd)/../../../httplib" \
-            -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include" \
+            -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include/nlohmann" \
             -GNinja
           ninja -j$(nproc)
 
