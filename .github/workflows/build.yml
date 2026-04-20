@@ -114,7 +114,7 @@ jobs:
           chmod 755 debian/DEBIAN/postinst
           cat > debian/DEBIAN/control << 'EOF'
           Package: mnn-llm-server
-          Version: test
+          Version: 0.0.0-test
           Architecture: aarch64
           Maintainer: test
           Description: Test package
@@ -234,7 +234,7 @@ jobs:
           chmod 755 debian/DEBIAN/postinst
           cat > debian/DEBIAN/control << 'EOF'
           Package: mnn-llm-server
-          Version: test
+          Version: 0.0.0-test
           Architecture: arm
           Maintainer: test
           Description: Test package
