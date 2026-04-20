@@ -11,12 +11,14 @@ set(MNN_INCLUDE_DIR "${MNN_ROOT}/include" CACHE PATH "MNN include directory")
 set(MNN_LLM_INCLUDE_DIR "${MNN_ROOT}/transformers/llm/engine/include" CACHE PATH "MNN LLM include directory")
 set(MNN_BUILD_DIR "${MNN_ROOT}/build" CACHE PATH "MNN build directory")
 set(CPPHTTPLIB_INCLUDE "" CACHE PATH "cpp-httplib include directory")
+set(NLOHMANN_INCLUDE "" CACHE PATH "nlohmann json include directory")
 
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${MNN_INCLUDE_DIR}
     ${MNN_LLM_INCLUDE_DIR}
     ${CPPHTTPLIB_INCLUDE}
+    ${NLOHMANN_INCLUDE}
 )
 
 link_directories(${MNN_BUILD_DIR})
