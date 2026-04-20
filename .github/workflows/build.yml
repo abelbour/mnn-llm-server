@@ -4,14 +4,20 @@ on:
   release:
     types: [created]
 
-permissions:
-  contents: write
-  releases: write
-
 env:
   MNN_REPO: alibaba/MNN
 
 jobs:
+  build-aarch64:
+    permissions:
+      contents: write
+      releases: write
+
+  build-arm:
+    permissions:
+      contents: write
+      releases: write
+
   # Build unified for aarch64 (all backends)
   build-aarch64:
     runs-on: ubuntu-latest
@@ -89,7 +95,7 @@ jobs:
           cp -r web/* pkg/web/
           touch pkg/models/.git_keep
           touch pkg/logs/.git_keep
-cd pkg && zip -r ../mnn-llm-server-aarch64.zip usr/
+          cd pkg && zip -r ../mnn-llm-server-aarch64.zip usr/
           cp ../mnn-llm-server-aarch64.zip ${{ github.workspace }}/
           cp ../mnn-llm-server-aarch64.deb ${{ github.workspace }}/
           ls -la ${{ github.workspace }}/
