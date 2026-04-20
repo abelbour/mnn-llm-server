@@ -5,8 +5,7 @@ on:
     types: [created]
 
 env:
-  MNN_REPO: https://github.com/alibaba/MNN.git
-  MNN_VERSION: latest
+  MNN_REPO: alibaba/MNN
 
 jobs:
   # Build OpenCL variant (aarch64) - priority 1
@@ -16,9 +15,16 @@ jobs:
       - name: Checkout server
         uses: actions/checkout@v4
 
+      - name: Get latest MNN version
+        id: version
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using MNN version: $VERSION"
+
       - name: Clone MNN
         run: |
-          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
 
       - name: Install cross-compile toolchain
         run: |
@@ -129,9 +135,16 @@ jobs:
       - name: Checkout server
         uses: actions/checkout@v4
 
+      - name: Get latest MNN version
+        id: version
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using MNN version: $VERSION"
+
       - name: Clone MNN
         run: |
-          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
 
       - name: Install cross-compile toolchain
         run: |
@@ -242,9 +255,16 @@ jobs:
       - name: Checkout server
         uses: actions/checkout@v4
 
+      - name: Get latest MNN version
+        id: version
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using MNN version: $VERSION"
+
       - name: Clone MNN
         run: |
-          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
 
       - name: Install cross-compile toolchain
         run: |
@@ -355,9 +375,16 @@ jobs:
       - name: Checkout server
         uses: actions/checkout@v4
 
+      - name: Get latest MNN version
+        id: version
+        run: |
+          VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using MNN version: $VERSION"
+
       - name: Clone MNN
         run: |
-          git clone --depth 1 --branch ${{ env.MNN_VERSION }} ${{ env.MNN_REPO }} MNN
+          git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
 
       - name: Install cross-compile toolchain
         run: |
