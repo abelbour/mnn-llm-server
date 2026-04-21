@@ -79,19 +79,20 @@ jobs:
 
       - name: Package for Linux
         run: |
-          mkdir -p usr/bin usr/lib web models logs
+          mkdir -p usr/bin usr/lib usr/web models logs
           cp MNN/server-build/mnn-server usr/bin/mnn-server
           cp MNN/build/libMNN.so usr/lib/
           cp MNN/build/libllm.so usr/lib/
           cp -r web/* usr/web/
-          touch models/.git_keep
-          touch logs/.git_keep
+          touch usr/models/.git_keep
+          touch usr/logs/.git_keep
           zip -r mnn-llm-server-aarch64.zip usr/
           ls -la *.zip
 
       - name: Package for Termux
         run: |
-          mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
+          mkdir -p debian/DEBIAN
+          mkdir -p debian/data/data/com.termux/files/usr/bin
           mkdir -p debian/data/data/com.termux/files/usr/lib
           mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
           cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
@@ -202,19 +203,20 @@ jobs:
 
       - name: Package for Linux
         run: |
-          mkdir -p usr/bin usr/lib web models logs
+          mkdir -p usr/bin usr/lib usr/web models logs
           cp MNN/server-build/mnn-server usr/bin/mnn-server
           cp MNN/build/libMNN.so usr/lib/
           cp MNN/build/libllm.so usr/lib/
           cp -r web/* usr/web/
-          touch models/.git_keep
-          touch logs/.git_keep
+          touch usr/models/.git_keep
+          touch usr/logs/.git_keep
           zip -r mnn-llm-server-arm.zip usr/
           ls -la *.zip
 
       - name: Package for Termux
         run: |
-          mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
+          mkdir -p debian/DEBIAN
+          mkdir -p debian/data/data/com.termux/files/usr/bin
           mkdir -p debian/data/data/com.termux/files/usr/lib
           mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
           cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
