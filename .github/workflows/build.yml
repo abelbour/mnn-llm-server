@@ -123,12 +123,8 @@ jobs:
           ls -la *.deb
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          release_tag_name: ${{ github.event.release.tag_name }}
-          files: |
-            mnn-llm-server-aarch64.zip
-            mnn-llm-server-aarch64.deb
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
 
   # ============================================================================
   # FULL BUILD SECTION - Uncomment when ready to build for real
@@ -244,9 +240,5 @@ jobs:
           ls -la *.deb
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          release_tag_name: ${{ github.event.release.tag_name }}
-          files: |
-            mnn-llm-server-arm.zip
-            mnn-llm-server-arm.deb
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
