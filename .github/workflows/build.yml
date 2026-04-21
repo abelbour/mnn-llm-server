@@ -87,25 +87,25 @@ jobs:
     steps:
       - name: Create test .zip file
         run: |
-          mkdir -p pkg/usr/bin pkg/usr/lib pkg/web pkg/models pkg/logs
-          echo "test binary for aarch64" > pkg/usr/bin/mnn-server
-          echo "test libMNN.so" > pkg/usr/lib/libMNN.so
-          echo "test libllm.so" > pkg/usr/lib/libllm.so
-          echo "<html>test web UI</html>" > pkg/web/index.html
-          touch pkg/models/.git_keep
-          touch pkg/logs/.git_keep
-          cd pkg && zip -r mnn-llm-server-aarch64.zip usr/
-          ls -la
+          mkdir -p usr/bin usr/lib web models logs
+          echo "test binary for aarch64" > usr/bin/mnn-server
+          echo "test libMNN.so" > usr/lib/libMNN.so
+          echo "test libllm.so" > usr/lib/libllm.so
+          echo "<html>test web UI</html>" > web/index.html
+          touch models/.git_keep
+          touch logs/.git_keep
+          zip -r mnn-llm-server-aarch64.zip usr/
+          ls -la *.zip
 
       - name: Create test .deb file
         run: |
           mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
           mkdir -p debian/data/data/com.termux/files/usr/lib
           mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
-          cp pkg/usr/bin/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
-          cp pkg/usr/lib/libMNN.so debian/data/data/com.termux/files/usr/lib/
-          cp pkg/usr/lib/libllm.so debian/data/data/com.termux/files/usr/lib/
-          cp pkg/web/index.html debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
+          cp usr/bin/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
+          cp usr/lib/libMNN.so debian/data/data/com.termux/files/usr/lib/
+          cp usr/lib/libllm.so debian/data/data/com.termux/files/usr/lib/
+          cp web/index.html debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
           cat > debian/DEBIAN/postinst << 'EOF'
           #!/bin/bash
           chmod +x /usr/bin/mnn-server
@@ -207,25 +207,25 @@ jobs:
     steps:
       - name: Create test .zip file
         run: |
-          mkdir -p pkg/usr/bin pkg/usr/lib pkg/web pkg/models pkg/logs
-          echo "test binary for arm" > pkg/usr/bin/mnn-server
-          echo "test libMNN.so" > pkg/usr/lib/libMNN.so
-          echo "test libllm.so" > pkg/usr/lib/libllm.so
-          echo "<html>test web UI</html>" > pkg/web/index.html
-          touch pkg/models/.git_keep
-          touch pkg/logs/.git_keep
-          cd pkg && zip -r mnn-llm-server-arm.zip usr/
-          ls -la
+          mkdir -p usr/bin usr/lib web models logs
+          echo "test binary for arm" > usr/bin/mnn-server
+          echo "test libMNN.so" > usr/lib/libMNN.so
+          echo "test libllm.so" > usr/lib/libllm.so
+          echo "<html>test web UI</html>" > web/index.html
+          touch models/.git_keep
+          touch logs/.git_keep
+          zip -r mnn-llm-server-arm.zip usr/
+          ls -la *.zip
 
       - name: Create test .deb file
         run: |
           mkdir -p debian/DEBIAN debian/data/data/com.termux/files/usr/bin
           mkdir -p debian/data/data/com.termux/files/usr/lib
           mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
-          cp pkg/usr/bin/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
-          cp pkg/usr/lib/libMNN.so debian/data/data/com.termux/files/usr/lib/
-          cp pkg/usr/lib/libllm.so debian/data/data/com.termux/files/usr/lib/
-          cp pkg/web/index.html debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
+          cp usr/bin/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
+          cp usr/lib/libMNN.so debian/data/data/com.termux/files/usr/lib/
+          cp usr/lib/libllm.so debian/data/data/com.termux/files/usr/lib/
+          cp web/index.html debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
           cat > debian/DEBIAN/postinst << 'EOF'
           #!/bin/bash
           chmod +x /usr/bin/mnn-server
