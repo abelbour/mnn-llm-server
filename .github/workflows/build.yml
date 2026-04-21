@@ -130,6 +130,79 @@ jobs:
             mnn-llm-server-aarch64.zip
             mnn-llm-server-aarch64.deb
 
+  # ============================================================================
+  # FULL BUILD SECTION - Uncomment when ready to build for real
+  # ============================================================================
+  # build-arm:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout server
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Get latest MNN version
+  #       id: version
+  #       run: |
+  #         VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+  #         echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
+  #
+  #     - name: Clone MNN
+  #       run: |
+  #         git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
+  #
+  #     - name: Install cross-compile toolchain
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y \
+  #           gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+  #           cmake ninja-build python3
+  #
+  #     - name: Build MNN (unified for arm)
+  #       run: |
+  #         cd MNN
+  #         mkdir -p build
+  #         cd build
+  #         cmake .. \
+  #           -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  #           -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+  #           -DCMAKE_SYSTEM_NAME=Linux \
+  #           -DCMAKE_SYSTEM_PROCESSOR=arm \
+  #           -DMNN_BUILD_LLM=ON \
+  #           -DMNN_OPENCL=ON \
+  #           -DMNN_VULKAN=ON \
+  #           -DMNN_OPENGL=OFF \
+  #           -DMNN_QNN=OFF \
+  #           -DMNN_LOW_MEMORY=ON \
+  #           -DMNN_SUPPORT_FP16_ARMV7=OFF \
+  #           -DMNN_OPENMP=ON \
+  #           -DMNN_SUPPORT_BF16=ON \
+  #           -GNinja
+  #         ninja -j$(nproc)
+  #
+  #     - name: Clone cpp-httplib
+  #       run: |
+  #         git clone https://github.com/yhirose/cpp-httplib.git ../httplib
+  #         git clone --depth 1 https://github.com/nlohmann/json.git ../json
+  #
+  #     - name: Build server
+  #       run: |
+  #         cd MNN
+  #         mkdir -p server-build
+  #         cd server-build
+  #         cmake ../../src \
+  #           -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  #           -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+  #           -DCMAKE_SYSTEM_NAME=Linux \
+  #           -DCMAKE_SYSTEM_PROCESSOR=arm \
+  #           -DMNN_ROOT="$(pwd)/../../MNN" \
+  #           -DCPPHTTPLIB_INCLUDE="$(pwd)/../../../httplib" \
+  #           -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include/nlohmann" \
+  #           -GNinja
+  #         ninja -j$(nproc)
+  #
+  # ============================================================================
+  # TEST MODE: Create minimal test files to verify upload mechanism works
+  # ============================================================================
+
   build-arm:
     runs-on: ubuntu-latest
     steps:
