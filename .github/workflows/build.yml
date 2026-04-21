@@ -79,7 +79,7 @@ jobs:
 
       - name: Package for Linux
         run: |
-          mkdir -p usr/bin usr/lib usr/web models logs
+          mkdir -p usr/bin usr/lib usr/web usr/models usr/logs
           cp MNN/server-build/mnn-server usr/bin/mnn-server
           cp MNN/build/libMNN.so usr/lib/
           cp MNN/build/libllm.so usr/lib/
@@ -203,7 +203,7 @@ jobs:
 
       - name: Package for Linux
         run: |
-          mkdir -p usr/bin usr/lib usr/web models logs
+          mkdir -p usr/bin usr/lib usr/web usr/models usr/logs
           cp MNN/server-build/mnn-server usr/bin/mnn-server
           cp MNN/build/libMNN.so usr/lib/
           cp MNN/build/libllm.so usr/lib/
