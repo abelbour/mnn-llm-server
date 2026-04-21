@@ -45,8 +45,10 @@ jobs:
             -DCMAKE_SYSTEM_NAME=Linux \
             -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
             -DMNN_BUILD_LLM=ON \
-            -DMNN_OPENCL=ON \
-            -DMNN_VULKAN=ON \
+            -DMNN_OPENCL=OFF \
+            -DMNN_VULKAN=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS=-static \
+            -DCMAKE_SHARED_LINKER_FLAGS=-static \
             -DMNN_OPENGL=OFF \
             -DMNN_QNN=OFF \
             -DMNN_LOW_MEMORY=ON \
@@ -101,16 +103,7 @@ jobs:
           cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
           cat > debian/DEBIAN/postinst << 'EOF'
           #!/bin/bash
-          if [ -z "$MNN_BACKEND" ]; then
-            if /usr/bin/mnn-server --test opencl 2>/dev/null; then
-              export MNN_BACKEND=opencl
-            elif /usr/bin/mnn-server --test vulkan 2>/dev/null; then
-              export MNN_BACKEND=vulkan
-            else
-              export MNN_BACKEND=cpu
-            fi
-            echo "Auto-detected backend: $MNN_BACKEND"
-          fi
+          export MNN_BACKEND=cpu
           chmod +x /usr/bin/mnn-server
           exit 0
           EOF
@@ -120,8 +113,7 @@ jobs:
           Version: ${{ github.event.release.tag_name }}
           Architecture: aarch64
           Maintainer: ${{ github.repository_owner }}
-          Description: MNN LLM Server with all GPU backends
-           Supports OpenCL, Vulkan, CPU
+          Description: MNN LLM Server (CPU only)
           EOF
           dpkg-deb --build debian mnn-llm-server-aarch64.deb
           ls -la *.deb
@@ -132,115 +124,115 @@ jobs:
         run: |
           gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
 
-  build-arm:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout server
-        uses: actions/checkout@v4
-
-      - name: Get latest MNN version
-        id: version
-        run: |
-          VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
-          echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "Using MNN version: $VERSION"
-
-      - name: Clone MNN
-        run: |
-          git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
-
-      - name: Install cross-compile toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
-            cmake ninja-build python3
-
-      - name: Build MNN (unified for arm)
-        run: |
-          cd MNN
-          mkdir -p build
-          cd build
-          cmake .. \
-            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
-            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=arm \
-            -DMNN_BUILD_LLM=ON \
-            -DMNN_OPENCL=ON \
-            -DMNN_VULKAN=ON \
-            -DMNN_OPENGL=OFF \
-            -DMNN_QNN=OFF \
-            -DMNN_LOW_MEMORY=ON \
-            -DMNN_SUPPORT_FP16_ARMV7=OFF \
-            -DMNN_OPENMP=ON \
-            -DMNN_SUPPORT_BF16=ON \
-            -GNinja
-          ninja -j$(nproc)
-
-      - name: Clone cpp-httplib
-        run: |
-          git clone https://github.com/yhirose/cpp-httplib.git ../httplib
-          git clone --depth 1 https://github.com/nlohmann/json.git ../json
-
-      - name: Build server
-        run: |
-          cd MNN
-          mkdir -p server-build
-          cd server-build
-          cmake ../../src \
-            -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
-            -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=arm \
-            -DMNN_ROOT="$(pwd)/../../MNN" \
-            -DCPPHTTPLIB_INCLUDE="$(pwd)/../../../httplib" \
-            -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include/nlohmann" \
-            -GNinja
-          ninja -j$(nproc)
-
-      - name: Package for Linux
-        run: |
-          mkdir -p usr/bin usr/lib usr/web usr/models usr/logs
-          cp MNN/server-build/mnn-server usr/bin/mnn-server
-          cp MNN/build/libMNN.so usr/lib/
-          cp MNN/build/libllm.so usr/lib/
-          cp -r web/* usr/web/
-          touch usr/models/.git_keep
-          touch usr/logs/.git_keep
-          zip -r mnn-llm-server-arm.zip usr/
-          ls -la *.zip
-
-      - name: Package for Termux
-        run: |
-          mkdir -p debian/DEBIAN
-          mkdir -p debian/data/data/com.termux/files/usr/bin
-          mkdir -p debian/data/data/com.termux/files/usr/lib
-          mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
-          cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
-          cp MNN/build/libMNN.so debian/data/data/com.termux/files/usr/lib/
-          cp MNN/build/libllm.so debian/data/data/com.termux/files/usr/lib/
-          cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
-          cat > debian/DEBIAN/postinst << 'EOF'
-          #!/bin/bash
-          chmod +x /usr/bin/mnn-server
-          exit 0
-          EOF
-          chmod 755 debian/DEBIAN/postinst
-          cat > debian/DEBIAN/control << 'EOF'
-          Package: mnn-llm-server
-          Version: ${{ github.event.release.tag_name }}
-          Architecture: arm
-          Maintainer: ${{ github.repository_owner }}
-          Description: MNN LLM Server for 32-bit ARM
-          EOF
-          dpkg-deb --build debian mnn-llm-server-arm.deb
-          ls -la *.deb
-
-      - name: Upload to Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
+  # build-arm:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: write
+  #   steps:
+  #     - name: Checkout server
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Get latest MNN version
+  #       id: version
+  #       run: |
+  #         VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+  #         echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
+  #         echo "Using MNN version: $VERSION"
+  #
+  #     - name: Clone MNN
+  #       run: |
+  #         git clone --depth 1 --branch ${{ env.MNN_VERSION }} https://github.com/${{ env.MNN_REPO }}.git MNN
+  #
+  #     - name: Install cross-compile toolchain
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y \
+  #           gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf \
+  #           cmake ninja-build python3
+  #
+  #     - name: Build MNN (unified for arm)
+  #       run: |
+  #         cd MNN
+  #         mkdir -p build
+  #         cd build
+  #         cmake .. \
+  #           -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  #           -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+  #           -DCMAKE_SYSTEM_NAME=Linux \
+  #           -DCMAKE_SYSTEM_PROCESSOR=arm \
+  #           -DMNN_BUILD_LLM=ON \
+  #           -DMNN_OPENCL=ON \
+  #           -DMNN_VULKAN=ON \
+  #           -DMNN_OPENGL=OFF \
+  #           -DMNN_QNN=OFF \
+  #           -DMNN_LOW_MEMORY=ON \
+  #           -DMNN_SUPPORT_FP16_ARMV7=OFF \
+  #           -DMNN_OPENMP=ON \
+  #           -DMNN_SUPPORT_BF16=ON \
+  #           -GNinja
+  #         ninja -j$(nproc)
+  #
+  #     - name: Clone cpp-httplib
+  #       run: |
+  #         git clone https://github.com/yhirose/cpp-httplib.git ../httplib
+  #         git clone --depth 1 https://github.com/nlohmann/json.git ../json
+  #
+  #     - name: Build server
+  #       run: |
+  #         cd MNN
+  #         mkdir -p server-build
+  #         cd server-build
+  #         cmake ../../src \
+  #           -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+  #           -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+  #           -DCMAKE_SYSTEM_NAME=Linux \
+  #           -DCMAKE_SYSTEM_PROCESSOR=arm \
+  #           -DMNN_ROOT="$(pwd)/../../MNN" \
+  #           -DCPPHTTPLIB_INCLUDE="$(pwd)/../../../httplib" \
+  #           -DNLOHMANN_INCLUDE="$(pwd)/../../../json/single_include/nlohmann" \
+  #           -GNinja
+  #         ninja -j$(nproc)
+  #
+  #     - name: Package for Linux
+  #       run: |
+  #         mkdir -p usr/bin usr/lib usr/web usr/models usr/logs
+  #         cp MNN/server-build/mnn-server usr/bin/mnn-server
+  #         cp MNN/build/libMNN.so usr/lib/
+  #         cp MNN/build/libllm.so usr/lib/
+  #         cp -r web/* usr/web/
+  #         touch usr/models/.git_keep
+  #         touch usr/logs/.git_keep
+  #         zip -r mnn-llm-server-arm.zip usr/
+  #         ls -la *.zip
+  #
+  #     - name: Package for Termux
+  #       run: |
+  #         mkdir -p debian/DEBIAN
+  #         mkdir -p debian/data/data/com.termux/files/usr/bin
+  #         mkdir -p debian/data/data/com.termux/files/usr/lib
+  #         mkdir -p debian/data/data/com.termux/files/usr/share/mnn-llm-server/web
+  #         cp MNN/server-build/mnn-server debian/data/data/com.termux/files/usr/bin/mnn-server
+  #         cp MNN/build/libMNN.so debian/data/data/com.termux/files/usr/lib/
+  #         cp MNN/build/libllm.so debian/data/data/com.termux/files/usr/lib/
+  #         cp -r web/* debian/data/data/com.termux/files/usr/share/mnn-llm-server/web/
+  #         cat > debian/DEBIAN/postinst << 'EOF'
+  #         #!/bin/bash
+  #         chmod +x /usr/bin/mnn-server
+  #         exit 0
+  #         EOF
+  #         chmod 755 debian/DEBIAN/postinst
+  #         cat > debian/DEBIAN/control << 'EOF'
+  #         Package: mnn-llm-server
+  #         Version: ${{ github.event.release.tag_name }}
+  #         Architecture: arm
+  #         Maintainer: ${{ github.repository_owner }}
+  #         Description: MNN LLM Server for 32-bit ARM
+  #         EOF
+  #         dpkg-deb --build debian mnn-llm-server-arm.deb
+  #         ls -la *.deb
+  #
+  #     - name: Upload to Release
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       run: |
+  #         gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
