@@ -83,7 +83,7 @@ jobs:
           cp MNN/server-build/mnn-server usr/bin/mnn-server
           cp MNN/build/libMNN.so usr/lib/
           cp MNN/build/libllm.so usr/lib/
-          cp -r web/* web/
+          cp -r web/* usr/web/
           touch models/.git_keep
           touch logs/.git_keep
           zip -r mnn-llm-server-aarch64.zip usr/
@@ -206,7 +206,7 @@ jobs:
           cp MNN/server-build/mnn-server usr/bin/mnn-server
           cp MNN/build/libMNN.so usr/lib/
           cp MNN/build/libllm.so usr/lib/
-          cp -r web/* web/
+          cp -r web/* usr/web/
           touch models/.git_keep
           touch logs/.git_keep
           zip -r mnn-llm-server-arm.zip usr/
