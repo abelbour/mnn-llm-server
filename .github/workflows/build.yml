@@ -48,7 +48,6 @@ jobs:
             -DMNN_OPENCL=OFF \
             -DMNN_VULKAN=OFF \
             -DCMAKE_EXE_LINKER_FLAGS=-static \
-            -DCMAKE_SHARED_LINKER_FLAGS=-static \
             -DMNN_OPENGL=OFF \
             -DMNN_QNN=OFF \
             -DMNN_LOW_MEMORY=ON \
