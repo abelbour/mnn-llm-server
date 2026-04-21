@@ -123,6 +123,8 @@ jobs:
           ls -la *.deb
 
       - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
 
@@ -240,5 +242,7 @@ jobs:
           ls -la *.deb
 
       - name: Upload to Release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
