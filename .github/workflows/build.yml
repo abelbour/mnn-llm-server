@@ -84,6 +84,8 @@ jobs:
 
   build-aarch64:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Create test .zip file
         run: |
@@ -124,7 +126,7 @@ jobs:
 
       - name: Upload to Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
 
@@ -203,6 +205,8 @@ jobs:
 
   build-arm:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Create test .zip file
         run: |
@@ -243,6 +247,6 @@ jobs:
 
       - name: Upload to Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
