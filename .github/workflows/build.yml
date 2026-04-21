@@ -126,7 +126,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
+          gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
 
   # ============================================================================
   # FULL BUILD SECTION - Uncomment when ready to build for real
@@ -245,4 +245,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
+          gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
