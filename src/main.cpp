@@ -29,6 +29,10 @@ private:
     bool isLoaded_ = false;
     std::atomic<bool> stopRequested_{false};
     std::mutex mutex_;
+    std::string cachedModels_;
+    bool modelsCached_ = false;
+    std::string cachedHtml_;
+    bool htmlCached_ = false;
 
 public:
     MnnServer(const std::string& modelsDir)
@@ -83,6 +87,7 @@ public:
         modelPath_ = modelPath;
         activeModel_ = getModelName(modelPath);
         isLoaded_ = true;
+        modelsCached_ = false;
 
         std::cout << "Model loaded successfully: " << activeModel_ << std::endl;
         return true;
@@ -145,6 +150,8 @@ public:
     bool isLoaded() const { return isLoaded_; }
 
     std::string scanModels() {
+        if (modelsCached_) return cachedModels_;
+
         json modelList = json::array();
         std::vector<std::string> files;
 
@@ -181,13 +188,29 @@ public:
             {"object", "list"},
             {"data", modelList}
         };
-        return result.dump();
+        cachedModels_ = result.dump();
+        modelsCached_ = true;
+        return cachedModels_;
+    }
+
+    const std::string& getWebHtml(const std::string& webPath) {
+        if (!htmlCached_) {
+            std::ifstream file(webPath);
+            if (file.is_open()) {
+                std::stringstream buffer;
+                buffer << file.rdbuf();
+                cachedHtml_ = buffer.str();
+            }
+            htmlCached_ = true;
+        }
+        return cachedHtml_;
     }
 };
 
 std::string parseMessages(const json& messages) {
     std::string fullPrompt;
     std::string systemPrompt;
+    const int MAX_CONTEXT_CHARS = 8000 * 4; // rough estimate: 8k tokens * 4 chars/token
 
     for (const auto& msg : messages) {
         std::string role = msg.value("role", "user");
@@ -216,6 +239,16 @@ std::string parseMessages(const json& messages) {
     }
 
     fullPrompt += "Assistant:";
+
+    // Truncate from the beginning if exceeding context window
+    if ((int)fullPrompt.size() > MAX_CONTEXT_CHARS) {
+        fullPrompt = fullPrompt.substr(fullPrompt.size() - MAX_CONTEXT_CHARS);
+        size_t firstNewline = fullPrompt.find('\n');
+        if (firstNewline != std::string::npos) {
+            fullPrompt = fullPrompt.substr(firstNewline + 1);
+        }
+    }
+
     return fullPrompt;
 }
 
@@ -327,14 +360,12 @@ int main(int argc, char* argv[]) {
     });
 
     svr.Get("/", [&](const httplib::Request& req, httplib::Response& res) {
-        std::ifstream file(webPath);
-        if (file.is_open()) {
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            res.set_content(buffer.str(), "text/html");
+        const std::string& html = server->getWebHtml(webPath);
+        if (!html.empty()) {
+            res.set_content(html, "text/html");
         } else {
             res.status = 404;
-            res.set_content("Chat UI not found at: " + webPath, "text/plain");
+            res.set_content("Not found", "text/plain");
         }
     });
 
@@ -362,6 +393,12 @@ int main(int argc, char* argv[]) {
 
             const json& messages = body["messages"];
             int maxTokens = std::clamp(body.value("max_tokens", 256), 1, 8192);
+
+            for (const char* param : {"temperature", "top_p", "frequency_penalty", "presence_penalty"}) {
+                if (body.contains(param)) {
+                    std::cerr << "Warning: " << param << " is not supported, ignoring" << std::endl;
+                }
+            }
             std::string prompt = parseMessages(messages);
 
             time_t now = time(nullptr);
@@ -385,6 +422,18 @@ int main(int argc, char* argv[]) {
                         rawServer->chatStreaming(prompt, maxTokens,
                             [&](const std::string& token, bool isEnd) {
                                 if (isEnd) {
+                                    json finishChunk = {
+                                        {"id", id},
+                                        {"object", "chat.completion.chunk"},
+                                        {"created", (int)time(nullptr)},
+                                        {"model", activeModel},
+                                        {"choices", json::array({{
+                                            {"index", 0},
+                                            {"delta", json::object()},
+                                            {"finish_reason", "stop"}
+                                        }})}
+                                    };
+                                    sink.os << "data: " << finishChunk.dump() << "\n\n";
                                     sink.os << "data: [DONE]\n\n";
                                     sink.os.flush();
                                     sink.done();

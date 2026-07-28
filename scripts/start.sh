@@ -17,7 +17,12 @@ mkdir -p "$BIN_DIR" "$LOGS_DIR" "$MODELS_DIR" "$WEB_DIR"
 
 load_config() {
     if [ -f "$CONFIG_FILE" ]; then
-        source "$CONFIG_FILE"
+        while IFS='=' read -r key value; do
+            case "$key" in
+                PORT) PORT="$value" ;;
+                MODEL) MODEL="$value" ;;
+            esac
+        done < "$CONFIG_FILE"
     fi
     PORT="${PORT:-$DEFAULT_PORT}"
     MODEL="${MODEL:-Llama-3.2-1B-Instruct-MNN}"
