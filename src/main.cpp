@@ -16,7 +16,7 @@
 #include <dirent.h>
 #include <ctime>
 #include <unistd.h>
-#include <libgen.h>
+#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -49,6 +49,9 @@ public:
         }
 
         std::string configPath = modelPath;
+        if (configPath.empty()) {
+            configPath = getExeDir() + "/models/default";
+        }
         if (configPath.back() != '/') {
             configPath += "/";
         }
@@ -99,6 +102,7 @@ public:
 
     std::string chat(const std::string& prompt, int maxTokens = 256) {
         std::lock_guard<std::mutex> lock(mutex_);
+        stopRequested_ = false;
 
         if (!llm_ || !isLoaded_) {
             return "Error: No model loaded";
@@ -269,7 +273,7 @@ std::string getExeDir() {
     ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
     if (len != -1) {
         buf[len] = '\0';
-        return dirname(dirname(buf));
+        return std::filesystem::path(buf).parent_path().string();
     }
     return ".";
 }
@@ -310,6 +314,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Starting HTTP server..." << std::endl;
 
     httplib::Server svr;
+    svr.set_payload_max_length(1024 * 1024); // 1MB max body
 
     svr.Get("/health", [&](const httplib::Request& req, httplib::Response& res) {
         json health = {

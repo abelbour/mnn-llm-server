@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xsukax Custom OpenAI WebUI</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; overflow: hidden; }
@@ -281,6 +282,7 @@
                 }
                 this.autoResizeTextarea();
                 this.setupImportHandler();
+                this.setupCopyDelegation();
             },
 
             loadSettings() {
@@ -462,6 +464,19 @@
                 });
             },
 
+            setupCopyDelegation() {
+                document.getElementById('chatMessages').addEventListener('click', (e) => {
+                    const btn = e.target.closest('.copy-btn');
+                    if (!btn || !btn.dataset.copy) return;
+                    try {
+                        const text = decodeURIComponent(escape(atob(btn.dataset.copy)));
+                        this.copyToClipboard(text, btn);
+                    } catch (err) {
+                        this.showNotification('Error', 'Failed to copy');
+                    }
+                });
+            },
+
             async detectLocalServer() {
                 if (this.settings.apiKey) return;
                 const origin = window.location.origin;
@@ -601,7 +616,7 @@
                 
                 if (!conv || conv.messages.length === 0) {
                     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><h3>Welcome to MNN LLM Server</h3><p>Start a conversation by sending a message</p></div>';
-                    document.getElementById('chatTitle').textContent = 'xsukax Custom OpenAI WebUI';
+                    document.getElementById('chatTitle').textContent = 'MNN LLM Server';
                     return;
                 }
                 
@@ -618,13 +633,13 @@
                     }
                     
                     const copyId = 'copy-' + idx;
-                    const escapedContent = this.escapeForJs(fullContent);
+                    const copyData = btoa(unescape(encodeURIComponent(fullContent)));
                     
                     return '<div class="message-wrapper ' + msg.role + '">' +
                         '<div class="message-avatar">' + (msg.role === 'user' ? 'U' : 'AI') + '</div>' +
                         '<div class="message-container">' +
                         '<div class="message-content">' + thinkingHtml + '<div class="response-section">' + this.formatMessage(msg.content) + '</div></div>' +
-                        '<div class="message-actions"><button class="copy-btn" id="' + copyId + '" onclick="app.copyToClipboard(\'' + escapedContent + '\', \'' + copyId + '\')">📋 Copy</button></div>' +
+                        '<div class="message-actions"><button class="copy-btn" id="' + copyId + '" data-copy="' + copyData + '">📋 Copy</button></div>' +
                         '</div></div>';
                 }).join('');
                 container.innerHTML = html;
@@ -633,7 +648,7 @@
 
             formatMessage(content) {
                 try {
-                    return marked.parse(content);
+                    return DOMPurify.sanitize(marked.parse(content));
                 } catch (error) {
                     return this.escapeHtml(content).replace(/\n/g, '<br>');
                 }
@@ -645,16 +660,9 @@
                 return div.innerHTML;
             },
 
-            escapeForJs(text) {
-                return text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
-            },
-
-            async copyToClipboard(text, buttonId) {
-                const cleanText = text.replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                
+            async copyToClipboard(text, btn) {
                 try {
-                    await navigator.clipboard.writeText(cleanText);
-                    const btn = document.getElementById(buttonId);
+                    await navigator.clipboard.writeText(text);
                     if (btn) {
                         const originalText = btn.innerHTML;
                         btn.innerHTML = '✓ Copied';
@@ -726,7 +734,7 @@
                 const thinkingId = Date.now();
                 const messageDiv = document.createElement('div');
                 messageDiv.className = 'message-wrapper assistant';
-                messageDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-container"><div class="message-content"><div class="thinking-section" id="thinking-' + thinkingId + '" style="display: none;"><div class="thinking-header" onclick="app.toggleThinking(this)"><div class="thinking-title"><span>🧠 Thinking Process</span><span class="thinking-badge" id="thinking-badge-' + thinkingId + '">0 tokens</span></div><div class="thinking-toggle">▼</div></div><div class="thinking-content" id="thinking-content-' + thinkingId + '"></div></div><div class="response-section" id="response-' + thinkingId + '"></div></div><div class="message-actions"><button class="copy-btn" id="copy-streaming" onclick="app.copyStreamingMessage()">📋 Copy</button></div></div>';
+                messageDiv.innerHTML = '<div class="message-avatar">AI</div><div class="message-container"><div class="message-content"><div class="thinking-section" id="thinking-' + thinkingId + '" style="display: none;"><div class="thinking-header" onclick="app.toggleThinking(this)"><div class="thinking-title"><span>🧠 Thinking Process</span><span class="thinking-badge" id="thinking-badge-' + thinkingId + '">0 tokens</span></div><div class="thinking-toggle">▼</div></div><div class="thinking-content" id="thinking-content-' + thinkingId + '"></div></div><div class="response-section" id="response-' + thinkingId + '"></div></div><div class="message-actions"><button class="copy-btn" id="copy-streaming" data-copy="">📋 Copy</button></div></div>';
                 container.appendChild(messageDiv);
                 
                 const thinkingSection = document.getElementById('thinking-' + thinkingId);
@@ -748,18 +756,21 @@
                     
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
+                    let sseBuffer = '';
+                    let streamDone = false;
                     
-                    while (true) {
+                    while (!streamDone) {
                         const { done, value } = await reader.read();
                         if (done) break;
                         
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split('\n').filter(line => line.trim());
+                        sseBuffer += decoder.decode(value, { stream: true });
+                        const lines = sseBuffer.split('\n');
+                        sseBuffer = lines.pop();
                         
                         for (const line of lines) {
                             if (line.startsWith('data: ')) {
-                                const data = line.slice(6);
-                                if (data === '[DONE]') break;
+                                const data = line.slice(6).trim();
+                                if (data === '[DONE]') { streamDone = true; break; }
                                 
                                 try {
                                     const parsed = JSON.parse(data);
@@ -785,6 +796,12 @@
                                         } else if (!extracted.thinking) {
                                             aiMessage.content = fullText;
                                             responseDiv.innerHTML = this.formatMessage(fullText);
+                                        }
+                                        
+                                        const streamCopyBtn = document.getElementById('copy-streaming');
+                                        if (streamCopyBtn) {
+                                            const copyText = aiMessage.thinking ? aiMessage.thinking + '\n\n' + aiMessage.content : aiMessage.content;
+                                            streamCopyBtn.dataset.copy = btoa(unescape(encodeURIComponent(copyText)));
                                         }
                                         
                                         container.scrollTop = container.scrollHeight;
@@ -847,35 +864,6 @@
                 }
                 
                 return { thinking: '', response: text };
-            },
-
-            async copyStreamingMessage() {
-                const conv = this.getCurrentConversation();
-                if (!conv || conv.messages.length === 0) return;
-                
-                const lastMessage = conv.messages[conv.messages.length - 1];
-                if (lastMessage.role !== 'assistant') return;
-                
-                let fullContent = lastMessage.content;
-                if (lastMessage.thinking) {
-                    fullContent = lastMessage.thinking + '\n\n' + lastMessage.content;
-                }
-                
-                try {
-                    await navigator.clipboard.writeText(fullContent);
-                    const btn = document.getElementById('copy-streaming');
-                    if (btn) {
-                        const originalText = btn.innerHTML;
-                        btn.innerHTML = '✓ Copied';
-                        btn.classList.add('copied');
-                        setTimeout(() => {
-                            btn.innerHTML = originalText;
-                            btn.classList.remove('copied');
-                        }, 2000);
-                    }
-                } catch (err) {
-                    this.showNotification('Error', 'Failed to copy to clipboard');
-                }
             },
 
             toggleThinking(headerElement) {
