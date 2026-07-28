@@ -11,6 +11,7 @@
 #include <chrono>
 #include <sstream>
 #include <fstream>
+#include <functional>
 #include <dirent.h>
 #include <ctime>
 
@@ -23,6 +24,7 @@ private:
     std::string modelsDir_;
     std::string activeModel_;
     bool isLoaded_ = false;
+    bool stopRequested_ = false;
     std::mutex mutex_;
 
 public:
@@ -92,7 +94,7 @@ public:
         return name;
     }
 
-    std::string chat(const std::string& prompt) {
+    std::string chat(const std::string& prompt, int maxTokens = 256) {
         std::lock_guard<std::mutex> lock(mutex_);
 
         if (!llm_ || !isLoaded_) {
@@ -100,10 +102,34 @@ public:
         }
 
         std::stringstream output;
-        llm_->response(prompt, &output, nullptr, 256);
+        llm_->response(prompt, &output, nullptr, maxTokens);
 
         std::string result = output.str();
         return result;
+    }
+
+    void stopStreaming() {
+        stopRequested_ = true;
+    }
+
+    void chatStreaming(const std::string& prompt, int maxTokens,
+                       std::function<void(const std::string&, bool)> onToken) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stopRequested_ = false;
+
+        if (!llm_ || !isLoaded_) {
+            onToken("Error: No model loaded", true);
+            return;
+        }
+
+        LlmStreamBuffer stream_buffer([&onToken, this](const char* str, size_t len) {
+            if (stopRequested_) return;
+            std::string token(str, len);
+            onToken(token, false);
+        });
+        std::ostream output_ostream(&stream_buffer);
+        llm_->response(prompt, &output_ostream, "<eop>", maxTokens);
+        onToken("", true);
     }
 
     const std::string& getActiveModel() const { return activeModel_; }
@@ -151,9 +177,8 @@ public:
 };
 
 std::string parseMessages(const json& messages) {
-    std::string systemPrompt;
-    std::string userPrompt;
     std::string fullPrompt;
+    std::string systemPrompt;
 
     for (const auto& msg : messages) {
         std::string role = msg.value("role", "user");
@@ -161,16 +186,27 @@ std::string parseMessages(const json& messages) {
 
         if (role == "system") {
             systemPrompt = content;
-        } else if (role == "user") {
-            userPrompt = content;
         }
     }
 
     if (!systemPrompt.empty()) {
         fullPrompt += "System: " + systemPrompt + "\n\n";
     }
-    fullPrompt += "User: " + userPrompt + "\n\nAssistant:";
 
+    for (const auto& msg : messages) {
+        std::string role = msg.value("role", "user");
+        std::string content = msg.value("content", "");
+
+        if (role == "system") continue;
+
+        if (role == "user") {
+            fullPrompt += "User: " + content + "\n\n";
+        } else if (role == "assistant") {
+            fullPrompt += "Assistant: " + content + "\n\n";
+        }
+    }
+
+    fullPrompt += "Assistant:";
     return fullPrompt;
 }
 
@@ -318,6 +354,7 @@ int main(int argc, char* argv[]) {
             }
 
             const json& messages = body["messages"];
+            int maxTokens = body.value("max_tokens", 256);
             std::string prompt = parseMessages(messages);
 
             time_t now = time(nullptr);
@@ -330,27 +367,34 @@ int main(int argc, char* argv[]) {
                 res.set_header("Connection", "keep-alive");
                 res.set_header("X-Accel-Buffering", "no");
 
-                std::string response = server->chat(prompt);
-                
-                size_t pos = 0;
-                int index = 0;
-                std::string result;
-                
-                while (pos < response.size()) {
-                    size_t chunk_len = std::min((size_t)10, response.size() - pos);
-                    std::string token = response.substr(pos, chunk_len);
-                    std::string chunk = buildChatCompletionChunk(id, activeModel, token, index);
-                    result += "data: " + chunk + "\n\n";
-                    pos += chunk_len;
-                    index++;
-                    
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                }
-                
-                result += "data: [DONE]\n\n";
-                res.set_content(result, "text/event-stream");
+                auto* rawServer = server.get();
+                res.set_chunked_content_provider(
+                    "text/event-stream",
+                    [rawServer, prompt, maxTokens, id, activeModel](
+                        size_t /*offset*/, httplib::DataSink& sink) {
+                        sink.on_cancel = [rawServer] {
+                            rawServer->stopStreaming();
+                        };
+                        rawServer->chatStreaming(prompt, maxTokens,
+                            [&](const std::string& token, bool isEnd) {
+                                if (isEnd) {
+                                    sink.os << "data: [DONE]\n\n";
+                                    sink.os.flush();
+                                    sink.done();
+                                    return;
+                                }
+                                sink.os << "data: "
+                                        << buildChatCompletionChunk(
+                                               id, activeModel, token, 0)
+                                        << "\n\n";
+                                sink.os.flush();
+                            }
+                        );
+                        return false;
+                    }
+                );
             } else {
-                std::string response = server->chat(prompt);
+                std::string response = server->chat(prompt, maxTokens);
                 std::string result = buildChatCompletion(id, activeModel, response);
                 res.set_content(result, "application/json");
             }
