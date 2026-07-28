@@ -167,7 +167,7 @@
             </div>
             <div class="form-group">
                 <label class="form-label">API URL</label>
-                <input type="text" class="form-input" id="apiUrl" value="https://api.openai.com/v1/chat/completions" placeholder="https://api.openai.com/v1/chat/completions">
+                <input type="text" class="form-input" id="apiUrl" value="" placeholder="http://localhost:8000/v1/chat/completions">
             </div>
             <div class="form-group">
                 <label class="form-label">API Key</label>
@@ -407,7 +407,7 @@
                     this.settings.apiModel = document.getElementById('apiModelSelect').value;
                 }
                 
-                if (!this.settings.apiKey) {
+                if (!this.settings.apiKey && !this.isLocal) {
                     this.showNotification('Error', 'API Key is required');
                     return;
                 }

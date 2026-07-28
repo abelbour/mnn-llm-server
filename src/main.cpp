@@ -12,8 +12,11 @@
 #include <sstream>
 #include <fstream>
 #include <functional>
+#include <atomic>
 #include <dirent.h>
 #include <ctime>
+#include <unistd.h>
+#include <libgen.h>
 
 using json = nlohmann::json;
 
@@ -24,7 +27,7 @@ private:
     std::string modelsDir_;
     std::string activeModel_;
     bool isLoaded_ = false;
-    bool stopRequested_ = false;
+    std::atomic<bool> stopRequested_{false};
     std::mutex mutex_;
 
 public:
@@ -258,9 +261,6 @@ std::string buildChatCompletionChunk(const std::string& id,
     };
     return result.dump();
 }
-
-#include <unistd.h>
-#include <libgen.h>
 
 std::string getExeDir() {
     char buf[1024];
