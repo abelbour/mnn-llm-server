@@ -65,22 +65,24 @@ jobs:
         cd android
         chmod +x gradlew
         rm -rf app/.cxx
-        ./gradlew assembleRelease --info \
-          -PMNN_ROOT=$HOME/MNN 2>&1 | tail -100
+        ./gradlew assembleDebug \
+          -PMNN_ROOT=$HOME/MNN
+        echo "=== APK output ==="
+        find android/app/build/outputs -name "*.apk" 2>/dev/null || echo "No APKs found"
 
     - name: Upload APK
       if: github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v4
       with:
         name: mnn-server-android
-        path: android/app/build/outputs/apk/release/*.apk
+        path: android/app/build/outputs/apk/debug/*.apk
         if-no-files-found: error
 
     - name: Create Release
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       uses: softprops/action-gh-release@v1
       with:
-        files: android/app/build/outputs/apk/release/*.apk
+        files: android/app/build/outputs/apk/debug/*.apk
         tag_name: android-${{ github.sha }}
         generate_release_notes: true
       env:
