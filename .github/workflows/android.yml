@@ -28,6 +28,11 @@ jobs:
     - name: Install NDK
       run: sdkmanager "ndk;26.1.10909125"
 
+    - name: Generate Gradle wrapper
+      run: |
+        cd android
+        gradle wrapper --gradle-version 8.5
+
     - name: Clone MNN
       run: |
         git clone --depth 1 https://github.com/alibaba/MNN.git $HOME/MNN
