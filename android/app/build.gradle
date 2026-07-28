@@ -22,7 +22,8 @@ android {
             cmake {
                 cppFlags "-std=c++17 -frtti -fexceptions"
                 arguments "-DANDROID_STL=c++_shared",
-                          "-DBUILD_SHARED_LIB=ON"
+                          "-DBUILD_SHARED_LIB=ON",
+                          "-DMNN_BUILD_DIR=" + (project.hasProperty('MNN_BUILD_DIR') ? project.property('MNN_BUILD_DIR') : System.getenv('HOME') + '/MNN/build')
             }
         }
     }
