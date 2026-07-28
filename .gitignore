@@ -12,6 +12,7 @@ mnn-server
 
 # MNN libraries (include pre-built if available)
 libs/*.so
+libs/*.a
 libs/*.dylib
 
 # Models (download separately)

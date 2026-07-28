@@ -93,7 +93,7 @@ public:
         return true;
     }
 
-    std::string getModelName(const std::string& path) {
+    std::string getModelName(const std::string& path) const {
         std::string name = path;
         size_t pos = name.rfind('/');
         if (pos != std::string::npos) {
@@ -136,13 +136,13 @@ public:
 
         // LlmStreamBuffer is defined in <llm/llm.hpp> — unqualified to match
         // MNN's own mls_server.cpp. If compile fails, try MNN::Transformer::LlmStreamBuffer.
-        LlmStreamBuffer stream_buffer([&onToken, this](const char* str, size_t len) {
+        LlmStreamBuffer streamBuffer([&onToken, this](const char* str, size_t len) {
             if (stopRequested_) return;
             std::string token(str, len);
             onToken(token, false);
         });
-        std::ostream output_ostream(&stream_buffer);
-        llm_->response(prompt, &output_ostream, "<eop>", maxTokens);
+        std::ostream outputStream(&streamBuffer);
+        llm_->response(prompt, &outputStream, "<eop>", maxTokens);
         onToken("", true);
     }
 

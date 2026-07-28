@@ -12,7 +12,7 @@
         .container { display: flex; height: 100vh; }
         .sidebar { width: 260px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; }
         .sidebar-header { padding: 16px; border-bottom: 1px solid #30363d; }
-        .sidebar-brand { font-size: 12px; color: #6e7681; margin-bottom: 12px; text-align: center; font-weight: 600; }
+        .sidebar-brand { font-size: 12px; color: #8b949e; margin-bottom: 12px; text-align: center; font-weight: 600; }
         .new-chat-btn { width: 100%; padding: 10px; background: #238636; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
         .new-chat-btn:hover { background: #2ea043; }
         .conversations { flex: 1; overflow-y: auto; padding: 8px; }
@@ -28,7 +28,7 @@
         .chat-header { padding: 16px 24px; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
         .chat-header-title { display: flex; flex-direction: column; }
         .chat-header-brand { font-size: 18px; font-weight: 600; }
-        .chat-header-subtitle { font-size: 12px; color: #6e7681; margin-top: 2px; }
+        .chat-header-subtitle { font-size: 12px; color: #8b949e; margin-top: 2px; }
         .settings-btn { padding: 8px 16px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; cursor: pointer; font-size: 14px; }
         .settings-btn:hover { background: #30363d; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 24px; }
@@ -70,7 +70,7 @@
         .thinking-header:hover { background: #1c2128; }
         .thinking-title { font-size: 13px; font-weight: 600; color: #8b949e; display: flex; align-items: center; gap: 8px; }
         .thinking-badge { font-size: 11px; background: #30363d; padding: 2px 8px; border-radius: 12px; font-weight: 500; }
-        .thinking-toggle { font-size: 12px; color: #6e7681; transition: transform 0.2s; }
+        .thinking-toggle { font-size: 12px; color: #8b949e; transition: transform 0.2s; }
         .thinking-toggle.collapsed { transform: rotate(-90deg); }
         .thinking-content { padding: 12px; color: #8b949e; font-size: 13px; line-height: 1.6; max-height: 300px; overflow-y: auto; }
         .thinking-content.collapsed { display: none; }
@@ -109,14 +109,14 @@
         .btn-info:hover { background: #388bfd; }
         .import-export-btns { display: flex; gap: 8px; margin-bottom: 16px; }
         .small-btn { padding: 6px 12px; font-size: 12px; }
-        .empty-state { text-align: center; padding: 48px 24px; color: #6e7681; }
+        .empty-state { text-align: center; padding: 48px 24px; color: #8b949e; }
         .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
         .fetch-models-section { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 16px; }
         .fetch-models-section .form-group { margin-bottom: 0; flex: 1; }
         .model-mode-toggle { display: flex; gap: 8px; margin-bottom: 16px; padding: 12px; background: #0d1117; border-radius: 6px; border: 1px solid #30363d; }
         .model-mode-toggle label { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .model-mode-toggle input[type="radio"] { cursor: pointer; }
-        .info-text { font-size: 12px; color: #6e7681; margin-top: 4px; }
+        .info-text { font-size: 12px; color: #8b949e; margin-top: 4px; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #0d1117; }
         ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
@@ -159,9 +159,9 @@
         </div>
     </div>
 
-    <div class="modal" id="settingsModal">
+    <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
         <div class="modal-content">
-            <div class="modal-header">API Settings</div>
+            <div class="modal-header" id="settingsTitle">API Settings</div>
             <div class="import-export-btns">
                 <button class="btn btn-secondary small-btn" onclick="app.exportSettings()">📤 Export</button>
                 <button class="btn btn-secondary small-btn" onclick="app.importSettings()">📥 Import</button>
@@ -208,7 +208,7 @@
         </div>
     </div>
 
-    <div class="modal" id="notificationModal">
+    <div class="modal" id="notificationModal" role="alert" aria-live="assertive">
         <div class="modal-content">
             <div class="modal-header" id="notificationTitle">Notification</div>
             <p id="notificationMessage"></p>
@@ -218,7 +218,7 @@
         </div>
     </div>
 
-    <div class="modal" id="confirmModal">
+    <div class="modal" id="confirmModal" role="alertdialog" aria-modal="true">
         <div class="modal-content">
             <div class="modal-header">Confirm Action</div>
             <p id="confirmMessage"></p>
@@ -229,7 +229,7 @@
         </div>
     </div>
 
-    <div class="modal" id="renameModal">
+    <div class="modal" id="renameModal" role="dialog" aria-modal="true">
         <div class="modal-content">
             <div class="modal-header">Rename Conversation</div>
             <div class="form-group">
@@ -243,7 +243,7 @@
         </div>
     </div>
 
-    <div class="modal" id="exportModal">
+    <div class="modal" id="exportModal" role="dialog" aria-modal="true">
         <div class="modal-content">
             <div class="modal-header">Export Conversation</div>
             <p>Choose export format:</p>
@@ -283,6 +283,7 @@
                 this.autoResizeTextarea();
                 this.setupImportHandler();
                 this.setupCopyDelegation();
+                this.setupEscapeKey();
             },
 
             loadSettings() {
@@ -481,6 +482,14 @@
                         this.copyToClipboard(text, btn);
                     } catch (err) {
                         this.showNotification('Error', 'Failed to copy');
+                    }
+                });
+            },
+
+            setupEscapeKey() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        document.querySelectorAll('.modal.active').forEach(m => m.classList.remove('active'));
                     }
                 });
             },
@@ -945,7 +954,7 @@
                 a.href = url;
                 a.download = filename;
                 a.click();
-                URL.revokeObjectURL(url);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
         };
 

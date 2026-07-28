@@ -249,8 +249,10 @@ show_menu() {
     
     local models
     models=$(get_models)
-    local model_count
-    model_count=$(echo "$models" | grep -c "^" || echo 0)
+    local model_count=0
+    if [ -n "$models" ]; then
+        model_count=$(echo "$models" | grep -c "^" || echo 0)
+    fi
     
     while true; do
         echo ""

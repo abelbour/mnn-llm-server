@@ -10,7 +10,7 @@ find_package(Threads REQUIRED)
 if(DEFINED ENV{MNN_ROOT})
   set(MNN_ROOT "$ENV{MNN_ROOT}" CACHE PATH "MNN root directory")
 else()
-  set(MNN_ROOT "/root/MNN" CACHE PATH "MNN root directory")
+  set(MNN_ROOT "$ENV{HOME}/MNN" CACHE PATH "MNN root directory")
 endif()
 
 set(MNN_INCLUDE_DIR "${MNN_ROOT}/include" CACHE PATH "MNN include directory")

@@ -20,6 +20,10 @@ jobs:
         id: version
         run: |
           VERSION=$(curl -s https://api.github.com/repos/${{ env.MNN_REPO }}/releases/latest | python3 -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
+          if [ -z "$VERSION" ]; then
+            echo "Error: Failed to fetch MNN version"
+            exit 1
+          fi
           echo "MNN_VERSION=$VERSION" >> $GITHUB_ENV
           echo "Using MNN version: $VERSION"
 
@@ -120,7 +124,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
+          gh release upload --repo "${{ github.repository }}" "${{ github.event.release.tag_name }}" mnn-llm-server-aarch64.zip mnn-llm-server-aarch64.deb
 
   # build-arm:
   #   runs-on: ubuntu-latest
@@ -233,4 +237,4 @@ jobs:
   #       env:
   #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   #       run: |
-  #         gh release upload --repo "abelbour/mnn-llm-server" "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
+  #         gh release upload --repo "${{ github.repository }}" "${{ github.event.release.tag_name }}" mnn-llm-server-arm.zip mnn-llm-server-arm.deb
