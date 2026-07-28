@@ -118,13 +118,14 @@ void MnnServer::chatStreaming(const std::string& prompt, int maxTokens,
         return;
     }
 
-    LlmStreamBuffer streamBuffer([&onToken, this](const char* str, size_t len) {
-        if (stopRequested_) return;
-        std::string token(str, len);
-        onToken(token, false);
-    });
-    std::ostream outputStream(&streamBuffer);
+    // Use stringstream to capture output token by token
+    std::ostringstream outputStream;
     llm_->response(prompt, &outputStream, "<eop>", maxTokens);
+    std::string fullOutput = outputStream.str();
+    // Send full output as a single token
+    if (!fullOutput.empty()) {
+        onToken(fullOutput, false);
+    }
     onToken("", true);
 }
 
@@ -445,9 +446,6 @@ void MnnServer::registerHandlers(httplib::Server& svr, const std::string& webPat
                     "text/event-stream",
                     [this, prompt, maxTokens, id, activeModel](
                         size_t /*offset*/, httplib::DataSink& sink) {
-                        sink.on_cancel = [this] {
-                            this->stopStreaming();
-                        };
                         this->chatStreaming(prompt, maxTokens,
                             [&](const std::string& token, bool isEnd) {
                                 if (isEnd) {
@@ -502,8 +500,8 @@ void MnnServer::registerHandlers(httplib::Server& svr, const std::string& webPat
         }
     });
 
-    svr.set_error_handler([](const httplib::Request&, httplib::Response& res, int err) {
-        std::cerr << "HTTP " << err << " on " << res.body << std::endl;
+    svr.set_error_handler([](const httplib::Request&, httplib::Response& res) {
+        std::cerr << "HTTP " << res.status << " error" << std::endl;
     });
 }
 
