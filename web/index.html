@@ -126,7 +126,7 @@
     <div class="container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-brand">xsukax Custom OpenAI WebUI</div>
+                <div class="sidebar-brand">MNN LLM Server</div>
                 <button class="new-chat-btn" onclick="app.createNewConversation()">+ New Chat</button>
             </div>
             <div class="conversations" id="conversationList"></div>
@@ -135,8 +135,8 @@
         <div class="main-content">
             <div class="chat-header">
                 <div class="chat-header-title">
-                    <div class="chat-header-brand" id="chatTitle">xsukax Custom OpenAI WebUI</div>
-                    <div class="chat-header-subtitle">Advanced AI Chat Interface</div>
+                    <div class="chat-header-brand" id="chatTitle">MNN LLM Server</div>
+                    <div class="chat-header-subtitle">Local AI Chat Interface</div>
                 </div>
                 <button class="settings-btn" onclick="app.openSettings()">⚙ Settings</button>
             </div>
@@ -144,7 +144,7 @@
             <div class="chat-messages" id="chatMessages">
                 <div class="empty-state">
                     <div class="empty-state-icon">💬</div>
-                    <h3>Welcome to xsukax Custom OpenAI WebUI</h3>
+                    <h3>Welcome to MNN LLM Server</h3>
                     <p>Start a conversation by sending a message</p>
                 </div>
             </div>
@@ -600,7 +600,7 @@
                 const container = document.getElementById('chatMessages');
                 
                 if (!conv || conv.messages.length === 0) {
-                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><h3>Welcome to xsukax Custom OpenAI WebUI</h3><p>Start a conversation by sending a message</p></div>';
+                    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💬</div><h3>Welcome to MNN LLM Server</h3><p>Start a conversation by sending a message</p></div>';
                     document.getElementById('chatTitle').textContent = 'xsukax Custom OpenAI WebUI';
                     return;
                 }

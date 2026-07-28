@@ -19,6 +19,14 @@ set(MNN_BUILD_DIR "${MNN_ROOT}/build" CACHE PATH "MNN build directory")
 set(CPPHTTPLIB_INCLUDE "" CACHE PATH "cpp-httplib include directory")
 set(NLOHMANN_INCLUDE "" CACHE PATH "nlohmann json include directory")
 
+# Auto-discover httplib and nlohmann if paths are empty
+if(NOT CPPHTTPLIB_INCLUDE OR CPPHTTPLIB_INCLUDE STREQUAL "")
+  find_path(CPPHTTPLIB_INCLUDE httplib.h)
+endif()
+if(NOT NLOHMANN_INCLUDE OR NLOHMANN_INCLUDE STREQUAL "")
+  find_path(NLOHMANN_INCLUDE nlohmann/json.hpp)
+endif()
+
 # Fallback discovery if the default paths don't exist
 if(NOT EXISTS "${MNN_INCLUDE_DIR}/MNN/MNNForwardType.h")
   find_path(MNN_INCLUDE_DIR MNN/MNNForwardType.h)

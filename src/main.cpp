@@ -125,6 +125,8 @@ public:
             return;
         }
 
+        // LlmStreamBuffer is defined in <llm/llm.hpp> — unqualified to match
+        // MNN's own mls_server.cpp. If compile fails, try MNN::Transformer::LlmStreamBuffer.
         LlmStreamBuffer stream_buffer([&onToken, this](const char* str, size_t len) {
             if (stopRequested_) return;
             std::string token(str, len);
@@ -338,7 +340,6 @@ int main(int argc, char* argv[]) {
         try {
             json body = json::parse(req.body);
 
-            std::string model = body.value("model", "");
             bool stream = body.value("stream", false);
 
             if (!body.contains("messages")) {
