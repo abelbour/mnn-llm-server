@@ -25,12 +25,23 @@ endif()
 if(NOT EXISTS "${MNN_LLM_INCLUDE_DIR}/llm/llm.hpp")
   find_path(MNN_LLM_INCLUDE_DIR llm/llm.hpp)
 endif()
-if(NOT EXISTS "${MNN_BUILD_DIR}/libMNN.so" AND NOT EXISTS "${MNN_BUILD_DIR}/libMNN.a")
-  find_library(MNN_LIBRARY MNN)
-  find_library(LLM_LIBRARY llm)
-  if(MNN_LIBRARY)
-    get_filename_component(MNN_BUILD_DIR "${MNN_LIBRARY}" DIRECTORY)
-  endif()
+
+# Search for MNN library - try common locations
+find_library(MNN_LIBRARY NAMES MNN
+  HINTS
+    "${MNN_BUILD_DIR}"
+    "${MNN_BUILD_DIR}/MNN"
+    "${MNN_BUILD_DIR}/Release"
+    "${MNN_BUILD_DIR}/Debug"
+    "${MNN_ROOT}/build-android"
+    "${MNN_ROOT}/build-android/MNN"
+)
+if(MNN_LIBRARY)
+  get_filename_component(MNN_BUILD_DIR "${MNN_LIBRARY}" DIRECTORY)
+  message(STATUS "Found MNN library: ${MNN_LIBRARY}")
+  message(STATUS "MNN_BUILD_DIR set to: ${MNN_BUILD_DIR}")
+else()
+  message(WARNING "MNN library not found, linking may fail")
 endif()
 
 # httplib fallback
@@ -91,10 +102,12 @@ if(BUILD_SHARED_LIB)
         ${CPPHTTPLIB_INCLUDE}
         ${NLOHMANN_INCLUDE}
     )
-    if(MNN_ROOT)
+    if(MNN_LIBRARY)
+        target_link_libraries(mnn_server PRIVATE ${MNN_LIBRARY})
+    else()
         target_link_directories(mnn_server PRIVATE ${MNN_BUILD_DIR})
+        target_link_libraries(mnn_server PRIVATE MNN)
     endif()
-    target_link_libraries(mnn_server PRIVATE MNN)
     find_package(Threads REQUIRED)
     target_link_libraries(mnn_server PRIVATE Threads::Threads)
     target_compile_definitions(mnn_server PRIVATE BUILD_SHARED_LIB)
@@ -116,10 +129,12 @@ else()
         ${CPPHTTPLIB_INCLUDE}
         ${NLOHMANN_INCLUDE}
     )
-    if(MNN_ROOT)
+    if(MNN_LIBRARY)
+        target_link_libraries(mnn_server PRIVATE ${MNN_LIBRARY})
+    else()
         target_link_directories(mnn_server PRIVATE ${MNN_BUILD_DIR})
+        target_link_libraries(mnn_server PRIVATE MNN llm)
     endif()
-    target_link_libraries(mnn_server PRIVATE MNN llm)
     find_package(Threads REQUIRED)
     target_link_libraries(mnn_server PRIVATE Threads::Threads)
     target_compile_options(mnn_server PRIVATE -Wno-unused-result)

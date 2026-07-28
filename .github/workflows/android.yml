@@ -51,14 +51,8 @@ jobs:
           -DMNN_SUPPORT_BF16=ON \
           -DMNN_LOW_MEMORY=ON
         make -j$(nproc)
-        echo "=== MNN build directory ==="
-        ls -la $HOME/MNN/build/
-        echo "=== MNN include dir ==="
-        ls -la $HOME/MNN/include/ 2>/dev/null | head -20
-        echo "=== MNN LLM include ==="
-        ls -la $HOME/MNN/transformers/llm/engine/include/llm/ 2>/dev/null || echo "LLM include not found"
-        echo "=== MNN build libs ==="
-        find $HOME/MNN/build -name "*.so" -o -name "*.a" 2>/dev/null
+        echo "=== MNN build results ==="
+        find $HOME/MNN/build -name "libMNN*" -o -name "libllm*" 2>/dev/null
 
     - name: Build Android APK
       run: |
