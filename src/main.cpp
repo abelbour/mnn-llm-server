@@ -292,7 +292,8 @@ int main(int argc, char* argv[]) {
         if (arg == "-h" && i + 1 < argc) {
             host = argv[++i];
         } else if (arg == "-p" && i + 1 < argc) {
-            port = std::stoi(argv[++i]);
+            try { port = std::stoi(argv[++i]); }
+            catch (...) { std::cerr << "Invalid port, using 8080\n"; port = 8080; }
         } else if (arg == "-m" && i + 1 < argc) {
             modelPath = argv[++i];
         } else if (arg == "-models" && i + 1 < argc) {
@@ -347,11 +348,11 @@ int main(int argc, char* argv[]) {
 
             bool stream = body.value("stream", false);
 
-            if (!body.contains("messages")) {
+            if (!body.contains("messages") || !body["messages"].is_array()) {
                 res.status = 400;
                 json error = {
                     {"error", {
-                        {"message", "Missing messages"},
+                        {"message", "messages must be a JSON array"},
                         {"type", "invalid_request_error"}
                     }}
                 };
@@ -360,7 +361,7 @@ int main(int argc, char* argv[]) {
             }
 
             const json& messages = body["messages"];
-            int maxTokens = body.value("max_tokens", 256);
+            int maxTokens = std::clamp(body.value("max_tokens", 256), 1, 8192);
             std::string prompt = parseMessages(messages);
 
             time_t now = time(nullptr);

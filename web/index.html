@@ -287,7 +287,10 @@
 
             loadSettings() {
                 const stored = localStorage.getItem('xsukaxAIChatSettings');
-                if (stored) this.settings = JSON.parse(stored);
+                if (stored) {
+                    try { this.settings = JSON.parse(stored); }
+                    catch { /* keep defaults */ }
+                }
             },
 
             saveSettingsToStorage() {
@@ -296,7 +299,10 @@
 
             loadConversations() {
                 const stored = localStorage.getItem('xsukaxAIChatConversations');
-                if (stored) this.conversations = JSON.parse(stored);
+                if (stored) {
+                    try { this.conversations = JSON.parse(stored); }
+                    catch { this.conversations = []; }
+                }
                 this.renderConversationList();
             },
 
@@ -319,11 +325,13 @@
                 
                 const storedModels = localStorage.getItem('xsukaxAvailableModels');
                 if (storedModels) {
-                    this.availableModels = JSON.parse(storedModels);
-                    this.populateModelSelect();
-                    if (this.settings.apiModel) {
-                        document.getElementById('apiModelSelect').value = this.settings.apiModel;
-                    }
+                    try {
+                        this.availableModels = JSON.parse(storedModels);
+                        this.populateModelSelect();
+                        if (this.settings.apiModel) {
+                            document.getElementById('apiModelSelect').value = this.settings.apiModel;
+                        }
+                    } catch { /* ignore corrupt data */ }
                 }
                 
                 document.getElementById('settingsModal').classList.add('active');
@@ -558,6 +566,7 @@
                 if (!newTitle) return;
                 
                 const conv = this.conversations.find(c => c.id === this.renameConversationId);
+                if (!conv) { this.closeRename(); return; }
                 conv.title = newTitle;
                 this.saveConversations();
                 this.renderConversationList();
@@ -726,6 +735,7 @@
 
             async streamAIResponse(conv) {
                 this.abortController = new AbortController();
+                const streamConvId = conv.id;
                 
                 const aiMessage = { role: 'assistant', content: '', thinking: '' };
                 conv.messages.push(aiMessage);
@@ -778,33 +788,37 @@
                                     
                                     if (content) {
                                         fullText += content;
+                                        const isActive = this.currentConversationId === streamConvId;
                                         
                                         const extracted = this.extractThinkingRealtime(fullText);
                                         
                                         if (extracted.thinking) {
                                             aiMessage.thinking = extracted.thinking;
-                                            thinkingSection.style.display = 'block';
-                                            thinkingContentDiv.innerHTML = this.formatMessage(extracted.thinking);
-                                            const wordCount = extracted.thinking.trim().split(/\s+/).length;
-                                            const approxTokens = Math.ceil(wordCount * 1.3);
-                                            thinkingBadge.textContent = '~' + approxTokens + ' tokens';
+                                            if (isActive) {
+                                                thinkingSection.style.display = 'block';
+                                                thinkingContentDiv.innerHTML = this.formatMessage(extracted.thinking);
+                                                const wordCount = extracted.thinking.trim().split(/\s+/).length;
+                                                const approxTokens = Math.ceil(wordCount * 1.3);
+                                                thinkingBadge.textContent = '~' + approxTokens + ' tokens';
+                                            }
                                         }
                                         
                                         if (extracted.response) {
                                             aiMessage.content = extracted.response;
-                                            responseDiv.innerHTML = this.formatMessage(extracted.response);
+                                            if (isActive) responseDiv.innerHTML = this.formatMessage(extracted.response);
                                         } else if (!extracted.thinking) {
                                             aiMessage.content = fullText;
-                                            responseDiv.innerHTML = this.formatMessage(fullText);
+                                            if (isActive) responseDiv.innerHTML = this.formatMessage(fullText);
                                         }
                                         
-                                        const streamCopyBtn = document.getElementById('copy-streaming');
-                                        if (streamCopyBtn) {
-                                            const copyText = aiMessage.thinking ? aiMessage.thinking + '\n\n' + aiMessage.content : aiMessage.content;
-                                            streamCopyBtn.dataset.copy = btoa(unescape(encodeURIComponent(copyText)));
+                                        if (isActive) {
+                                            const streamCopyBtn = document.getElementById('copy-streaming');
+                                            if (streamCopyBtn) {
+                                                const copyText = aiMessage.thinking ? aiMessage.thinking + '\n\n' + aiMessage.content : aiMessage.content;
+                                                streamCopyBtn.dataset.copy = btoa(unescape(encodeURIComponent(copyText)));
+                                            }
+                                            container.scrollTop = container.scrollHeight;
                                         }
-                                        
-                                        container.scrollTop = container.scrollHeight;
                                     }
                                 } catch (e) {
                                     console.error('Parse error:', e);

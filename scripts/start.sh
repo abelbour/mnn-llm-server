@@ -122,11 +122,7 @@ start_server() {
     cd "$PROJECT_DIR"
     export LD_LIBRARY_PATH="$LIBS_DIR:$PROJECT_DIR:$LD_LIBRARY_PATH"
     
-    if [ -d "$model_path" ]; then
-        ./mnn-server -m "$model_path" -p "$port" > "$LOGS_DIR/server.log" 2>&1 &
-    else
-        ./mnn-server -m "$model_path" -p "$port" > "$LOGS_DIR/server.log" 2>&1 &
-    fi
+    ./mnn-server -m "$model_path" -p "$port" > "$LOGS_DIR/server.log" 2>&1 &
     
     sleep 3
     
@@ -147,9 +143,8 @@ stop_server() {
     fi
     
     echo "Stopping server on port $port..."
-    pkill -f "mnn-server.*-p $port" 2>/dev/null
-    
-    if pgrep -f "mnn-server" > /dev/null; then
+    if pgrep -f "mnn-server.*-p $port" > /dev/null 2>&1; then
+        pkill -f "mnn-server.*-p $port" 2>/dev/null
         echo "Server stopped."
     else
         echo "No server running."
@@ -517,7 +512,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --start|-s)
             shift
-            local model=""
+            model=""
             if [ -n "$1" ] && [[ ! "$1" =~ ^- ]]; then
                 model="$1"
             fi
@@ -531,7 +526,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --logs)
             shift
-            local lines="${1:-50}"
+            lines="${1:-50}"
             view_logs "$lines"
             ;;
         -m|--model)

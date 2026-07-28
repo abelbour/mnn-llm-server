@@ -4,7 +4,7 @@ project(mnn-server)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_definitions(-DCPPHTTPLIB_KEEPALIVE_TIMEOUT_SECOND=120)
+find_package(Threads REQUIRED)
 
 # MNN root — use env var MNN_ROOT if set, else default to /root/MNN
 if(DEFINED ENV{MNN_ROOT})
@@ -54,10 +54,12 @@ link_directories(${MNN_BUILD_DIR})
 
 add_executable(mnn-server main.cpp)
 
+target_compile_definitions(mnn-server PRIVATE CPPHTTPLIB_KEEPALIVE_TIMEOUT_SECOND=120)
+
 target_link_libraries(mnn-server
     MNN
     llm
-    pthread
+    Threads::Threads
 )
 
 target_compile_options(mnn-server PRIVATE -Wno-unused-result)
