@@ -258,21 +258,24 @@
 
     <script>
         const app = {
-            settings: { apiUrl: 'https://api.openai.com/v1/chat/completions', apiModel: 'gpt-4', apiKey: '', modelMode: 'select' },
+            settings: { apiUrl: '', apiModel: '', apiKey: '', modelMode: 'select' },
             conversations: [],
             currentConversationId: null,
             abortController: null,
             renameConversationId: null,
             exportConversationId: null,
             availableModels: [],
+            isLocal: false,
 
             init() {
                 marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
                 this.loadSettings();
                 this.loadConversations();
-                if (!this.settings.apiKey) {
-                    this.openSettings();
-                }
+                this.detectLocalServer().then(() => {
+                    if (!this.settings.apiKey && !this.isLocal) {
+                        this.openSettings();
+                    }
+                });
                 if (this.conversations.length > 0) {
                     this.switchConversation(this.conversations[0].id);
                 }
@@ -457,6 +460,32 @@
                     reader.readAsText(file);
                     event.target.value = '';
                 });
+            },
+
+            async detectLocalServer() {
+                if (this.settings.apiKey) return;
+                const origin = window.location.origin;
+                try {
+                    const resp = await fetch(origin + '/v1/models', {
+                        headers: { 'Authorization': 'Bearer dummy', 'Content-Type': 'application/json' }
+                    });
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        if (data.data && data.data.length > 0) {
+                            this.isLocal = true;
+                            this.settings.apiUrl = origin + '/v1/chat/completions';
+                            this.settings.apiModel = data.data[0].id;
+                            this.settings.apiKey = 'dummy';
+                            this.settings.modelMode = 'select';
+                            this.availableModels = data.data.map(m => m.id).sort();
+                            localStorage.setItem('xsukaxAvailableModels', JSON.stringify(this.availableModels));
+                            this.saveSettingsToStorage();
+                            this.populateModelSelect();
+                        }
+                    }
+                } catch (e) {
+                    // Not a local server, use defaults
+                }
             },
 
             createNewConversation() {
@@ -651,7 +680,7 @@
                 }
                 
                 if (!message) return;
-                if (!this.settings.apiKey) {
+                if (!this.settings.apiKey && !this.isLocal) {
                     this.showNotification('Error', 'Please configure your API key in settings');
                     return;
                 }
@@ -919,22 +948,21 @@
         };
 
         app.init();
-        
-        // Simple prefill - no model fetching, user clicks "Fetch Models" manually
+
+        // Prefill from URL params only if no settings exist yet
         (function() {
+            if (localStorage.getItem('xsukaxAIChatSettings')) return;
             const params = new URLSearchParams(window.location.search);
-            const serverUrl = params.get('apiUrl') || window.location.origin + '/v1';
-            const model = params.get('model') || 'Llama-3.2-1B';
-            const apiKey = params.get('apiKey') || 'dummy';
-            
-            const defaultSettings = {
-                apiUrl: serverUrl + '/chat/completions',
-                apiModel: model,
-                apiKey: apiKey,
-                modelMode: 'select'
-            };
-            
-            localStorage.setItem('xsukaxAIChatSettings', JSON.stringify(defaultSettings));
+            const serverUrl = params.get('apiUrl');
+            const model = params.get('model');
+            const apiKey = params.get('apiKey');
+            if (serverUrl || model || apiKey) {
+                const prefill = { apiUrl: '', apiModel: '', apiKey: '', modelMode: 'select' };
+                if (serverUrl) prefill.apiUrl = serverUrl + '/chat/completions';
+                if (model) prefill.apiModel = model;
+                if (apiKey) prefill.apiKey = apiKey;
+                localStorage.setItem('xsukaxAIChatSettings', JSON.stringify(prefill));
+            }
         })();
     </script>
 </body>
