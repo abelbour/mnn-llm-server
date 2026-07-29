@@ -26,22 +26,29 @@ if(NOT EXISTS "${MNN_LLM_INCLUDE_DIR}/llm/llm.hpp")
   find_path(MNN_LLM_INCLUDE_DIR llm/llm.hpp)
 endif()
 
-# Search for MNN library - try common locations
-find_library(MNN_LIBRARY NAMES MNN
-  HINTS
-    "${MNN_BUILD_DIR}"
-    "${MNN_BUILD_DIR}/MNN"
-    "${MNN_BUILD_DIR}/Release"
-    "${MNN_BUILD_DIR}/Debug"
-    "${MNN_ROOT}/build-android"
-    "${MNN_ROOT}/build-android/MNN"
-)
-if(MNN_LIBRARY)
-  get_filename_component(MNN_BUILD_DIR "${MNN_LIBRARY}" DIRECTORY)
-  message(STATUS "Found MNN library: ${MNN_LIBRARY}")
-  message(STATUS "MNN_BUILD_DIR set to: ${MNN_BUILD_DIR}")
+# Find MNN library
+# Try MNN_LIB first (exact path passed from CI), then glob common locations
+if(DEFINED MNN_LIB AND EXISTS "${MNN_LIB}")
+  set(MNN_LIB_PATH "${MNN_LIB}")
 else()
-  message(WARNING "MNN library not found, linking may fail")
+  file(GLOB_RECURSE MNN_LIB_CANDIDATES "${MNN_BUILD_DIR}*/libMNN.so")
+  if(MNN_LIB_CANDIDATES)
+    list(GET MNN_LIB_CANDIDATES 0 MNN_LIB_PATH)
+  else()
+    # Try non-glob fallbacks
+    foreach(_dir IN ITEMS "" "/MNN" "/Release" "/Debug")
+      if(EXISTS "${MNN_BUILD_DIR}${_dir}/libMNN.so")
+        set(MNN_LIB_PATH "${MNN_BUILD_DIR}${_dir}/libMNN.so")
+        break()
+      endif()
+    endforeach()
+  endif()
+endif()
+
+if(MNN_LIB_PATH)
+  message(STATUS "Found MNN library: ${MNN_LIB_PATH}")
+else()
+  message(FATAL_ERROR "libMNN.so not found. Set -DMNN_LIB=/path/to/libMNN.so")
 endif()
 
 # httplib fallback
@@ -102,12 +109,7 @@ if(BUILD_SHARED_LIB)
         ${CPPHTTPLIB_INCLUDE}
         ${NLOHMANN_INCLUDE}
     )
-    if(MNN_LIBRARY)
-        target_link_libraries(mnn_server PRIVATE ${MNN_LIBRARY})
-    else()
-        target_link_directories(mnn_server PRIVATE ${MNN_BUILD_DIR})
-        target_link_libraries(mnn_server PRIVATE MNN)
-    endif()
+    target_link_libraries(mnn_server PRIVATE ${MNN_LIB_PATH})
     find_package(Threads REQUIRED)
     target_link_libraries(mnn_server PRIVATE Threads::Threads)
     target_compile_definitions(mnn_server PRIVATE BUILD_SHARED_LIB)
@@ -129,12 +131,7 @@ else()
         ${CPPHTTPLIB_INCLUDE}
         ${NLOHMANN_INCLUDE}
     )
-    if(MNN_LIBRARY)
-        target_link_libraries(mnn_server PRIVATE ${MNN_LIBRARY})
-    else()
-        target_link_directories(mnn_server PRIVATE ${MNN_BUILD_DIR})
-        target_link_libraries(mnn_server PRIVATE MNN llm)
-    endif()
+    target_link_libraries(mnn_server PRIVATE ${MNN_LIB_PATH})
     find_package(Threads REQUIRED)
     target_link_libraries(mnn_server PRIVATE Threads::Threads)
     target_compile_options(mnn_server PRIVATE -Wno-unused-result)
