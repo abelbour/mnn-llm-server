@@ -26,29 +26,40 @@ if(NOT EXISTS "${MNN_LLM_INCLUDE_DIR}/llm/llm.hpp")
   find_path(MNN_LLM_INCLUDE_DIR llm/llm.hpp)
 endif()
 
-# Find MNN library
-# Try MNN_LIB first (exact path passed from CI), then glob common locations
+# Find MNN core library
 if(DEFINED MNN_LIB AND EXISTS "${MNN_LIB}")
   set(MNN_LIB_PATH "${MNN_LIB}")
 else()
   file(GLOB_RECURSE MNN_LIB_CANDIDATES "${MNN_BUILD_DIR}*/libMNN.so")
   if(MNN_LIB_CANDIDATES)
     list(GET MNN_LIB_CANDIDATES 0 MNN_LIB_PATH)
-  else()
-    # Try non-glob fallbacks
-    foreach(_dir IN ITEMS "" "/MNN" "/Release" "/Debug")
-      if(EXISTS "${MNN_BUILD_DIR}${_dir}/libMNN.so")
-        set(MNN_LIB_PATH "${MNN_BUILD_DIR}${_dir}/libMNN.so")
-        break()
-      endif()
-    endforeach()
   endif()
 endif()
-
 if(MNN_LIB_PATH)
   message(STATUS "Found MNN library: ${MNN_LIB_PATH}")
 else()
   message(FATAL_ERROR "libMNN.so not found. Set -DMNN_LIB=/path/to/libMNN.so")
+endif()
+
+# Find LLM engine library
+if(DEFINED MNN_LLM_LIB AND EXISTS "${MNN_LLM_LIB}")
+  set(MNN_LLM_LIB_PATH "${MNN_LLM_LIB}")
+else()
+  # libllm.so is typically in the same directory as libMNN.so
+  get_filename_component(_mnn_lib_dir "${MNN_LIB_PATH}" DIRECTORY)
+  if(EXISTS "${_mnn_lib_dir}/libllm.so")
+    set(MNN_LLM_LIB_PATH "${_mnn_lib_dir}/libllm.so")
+  else()
+    file(GLOB_RECURSE LLM_LIB_CANDIDATES "${MNN_BUILD_DIR}*/libllm.so")
+    if(LLM_LIB_CANDIDATES)
+      list(GET LLM_LIB_CANDIDATES 0 MNN_LLM_LIB_PATH)
+    endif()
+  endif()
+endif()
+if(MNN_LLM_LIB_PATH)
+  message(STATUS "Found LLM library: ${MNN_LLM_LIB_PATH}")
+else()
+  message(FATAL_ERROR "libllm.so not found. Set -DMNN_LLM_LIB=/path/to/libllm.so")
 endif()
 
 # httplib fallback
@@ -109,7 +120,7 @@ if(BUILD_SHARED_LIB)
         ${CPPHTTPLIB_INCLUDE}
         ${NLOHMANN_INCLUDE}
     )
-    target_link_libraries(mnn_server PRIVATE ${MNN_LIB_PATH})
+    target_link_libraries(mnn_server PRIVATE ${MNN_LIB_PATH} ${MNN_LLM_LIB_PATH})
     find_package(Threads REQUIRED)
     target_link_libraries(mnn_server PRIVATE Threads::Threads)
     target_compile_definitions(mnn_server PRIVATE BUILD_SHARED_LIB)
@@ -131,7 +142,7 @@ else()
         ${CPPHTTPLIB_INCLUDE}
         ${NLOHMANN_INCLUDE}
     )
-    target_link_libraries(mnn_server PRIVATE ${MNN_LIB_PATH})
+    target_link_libraries(mnn_server PRIVATE ${MNN_LIB_PATH} ${MNN_LLM_LIB_PATH})
     find_package(Threads REQUIRED)
     target_link_libraries(mnn_server PRIVATE Threads::Threads)
     target_compile_options(mnn_server PRIVATE -Wno-unused-result)

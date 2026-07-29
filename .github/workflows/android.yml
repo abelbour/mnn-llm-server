@@ -57,13 +57,20 @@ jobs:
     - name: Find MNN library path
       id: mnn
       run: |
-        LIB_PATH=$(find $HOME/MNN/build -name "libMNN.so" | head -1)
-        if [ -z "$LIB_PATH" ]; then
+        MNN_LIB=$(find $HOME/MNN/build -name "libMNN.so" | head -1)
+        LLM_LIB=$(find $HOME/MNN/build -name "libllm.so" | head -1)
+        if [ -z "$MNN_LIB" ]; then
           echo "::error::libMNN.so not found"
           exit 1
         fi
-        echo "MNN_LIB=$LIB_PATH" >> $GITHUB_OUTPUT
-        echo "Found MNN library at: $LIB_PATH"
+        if [ -z "$LLM_LIB" ]; then
+          echo "::error::libllm.so not found"
+          exit 1
+        fi
+        echo "MNN_LIB=$MNN_LIB" >> $GITHUB_OUTPUT
+        echo "MNN_LLM_LIB=$LLM_LIB" >> $GITHUB_OUTPUT
+        echo "Found MNN library at: $MNN_LIB"
+        echo "Found LLM library at: $LLM_LIB"
 
     - name: Build Android APK
       run: |
@@ -72,7 +79,8 @@ jobs:
         rm -rf app/.cxx
         ./gradlew assembleDebug \
           -PMNN_ROOT=$HOME/MNN \
-          -DMNN_LIB=${{ steps.mnn.outputs.MNN_LIB }}
+          -DMNN_LIB=${{ steps.mnn.outputs.MNN_LIB }} \
+          -DMNN_LLM_LIB=${{ steps.mnn.outputs.MNN_LLM_LIB }}
         echo "=== APK output ==="
         find android/app/build/outputs -name "*.apk" 2>/dev/null || echo "No APKs found"
 

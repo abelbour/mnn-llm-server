@@ -23,7 +23,8 @@ android {
                 cppFlags "-std=c++17 -frtti -fexceptions"
                 arguments "-DANDROID_STL=c++_shared",
                           "-DBUILD_SHARED_LIB=ON",
-                          "-DMNN_LIB=${project.findProperty('MNN_LIB') ?: ''}"
+                          "-DMNN_LIB=${project.findProperty('MNN_LIB') ?: ''}",
+                          "-DMNN_LLM_LIB=${project.findProperty('MNN_LLM_LIB') ?: ''}"
             }
         }
     }
