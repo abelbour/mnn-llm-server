@@ -48,6 +48,7 @@ jobs:
           -DANDROID_STL=c++_shared \
           -DCMAKE_BUILD_TYPE=Release \
           -DMNN_BUILD_LLM=ON \
+          -DMNN_ARM82=OFF \
           -DMNN_SUPPORT_BF16=ON \
           -DMNN_LOW_MEMORY=ON
         make -j$(nproc)
