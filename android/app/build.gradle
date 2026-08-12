@@ -57,6 +57,12 @@ android {
             jniLibs.srcDirs = ['libs']
         }
     }
+
+    applicationVariants.configureEach { variant ->
+        variant.outputs.all {
+            outputFileName = "mnn-llm-server-${variant.buildType.name}.apk"
+        }
+    }
 }
 
 dependencies {
