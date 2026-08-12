@@ -49,6 +49,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DMNN_BUILD_LLM=ON \
           -DMNN_BUILD_DEMO=OFF \
+          -DMNN_LLM_BUILD_DEMO=OFF \
           -DMNN_BUILD_TEST=OFF \
           -DMNN_ARM82=OFF \
           -DMNN_SUPPORT_BF16=ON \
